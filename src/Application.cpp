@@ -140,7 +140,7 @@ void App::drawGui(size_t imageIndex, bool renderQueued) {
 			flags |= ImGuiWindowFlags_AlwaysAutoResize;
 			flags |= ImGuiWindowFlags_NoMove;
 			ImGui::Begin("Status", nullptr, flags);
-			ImGui::Text(status.c_str());
+			ImGui::TextUnformatted(status.c_str());
 			ImGui::End();
 		}
 		/* FPS */
@@ -151,7 +151,7 @@ void App::drawGui(size_t imageIndex, bool renderQueued) {
 			flags |= ImGuiWindowFlags_NoMove;
 			ImGui::Begin("FPS", nullptr, flags);
 			auto text = fps + std::to_string(lastFPS);
-			ImGui::Text(text.c_str());
+			ImGui::TextUnformatted(text.c_str());
 			ImGui::End();
 		}
 
@@ -162,7 +162,7 @@ void App::drawGui(size_t imageIndex, bool renderQueued) {
 			flags |= ImGuiWindowFlags_AlwaysAutoResize;
 			flags |= ImGuiWindowFlags_NoMove;
 			ImGui::Begin("Message", nullptr, flags);
-			ImGui::Text(message.c_str());
+			ImGui::TextUnformatted(message.c_str());
 			if (ImGui::Button("Ok")) {
 				message.clear();
 			}

@@ -10,19 +10,19 @@
         "showReuseMessage": true
     },
     "options": {
-        "cwd": "${workspaceRoot}/build/linux"
+        "cwd": "${workspaceRoot}/build"
     },
     "tasks": [
         {
             "label": "CMake-Debug",
-            "command": "cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ../..",
+            "command": "cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..",
             "type": "shell",
             "group": "build",
             "problemMatcher": []
         },
         {
             "label": "CMake-Release",
-            "command": "cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release ../..",
+            "command": "cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release ..",
             "type": "shell",
             "group": "build",
             "problemMatcher": []
@@ -35,7 +35,18 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": "$gcc"
+            "problemMatcher": {
+                "owner": "cpptools",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
         }
     ]
 }
