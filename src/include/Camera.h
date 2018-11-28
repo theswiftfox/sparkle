@@ -21,7 +21,9 @@
 #include <glm/glm.hpp>
 
 #include <memory>
-#include <math.h>
+
+#define _USE_MATH_DEFINES  
+#include <math.h>  
 
 class Camera {
 public:
