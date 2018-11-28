@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
 set(CMAKE_CXX_STANDARD 17)
@@ -74,22 +74,12 @@ add_executable(${PROJECT_NAME} ${SRC} ${HDR})
 target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw)
 
 foreach(SHADER ${SHADERS})
-	if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-		if(WIN32)
-			set(CMD md shaders)
-		else()
-			set(CMD mkdir -p shaders)
-		endif(WIN32)
-		add_custom_command(TARGET ${PROJECT_NAME} COMMAND ${CMD} COMMENT "Create shader bin dir")
-	endif()
-
 	get_filename_component(FILE_NAME ${SHADER} NAME)
 	set(output_file ${CMAKE_CURRENT_BINARY_DIR}/shaders/${FILE_NAME}.spv)
 	set(compiled_shaders ${compiled_shaders} ${output_file})
 
 	add_custom_command(
 		OUTPUT ${output_file}
-		COMMAND ${CMD}
 		COMMAND ${GLSLANG_VALIDATOR} -w -V ${CMAKE_SOURCE_DIR}/${SHADER} -o ${output_file}
 		DEPENDS ${CMAKE_SOURCE_DIR}/${SHADER}
 		COMMENT "Compiling shader ${output_file}"
@@ -97,6 +87,15 @@ foreach(SHADER ${SHADERS})
 endforeach()
 	
 add_custom_target(shaders-${PROJECT_NAME} ALL DEPENDS ${compiled_shaders})
+if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+	if(WIN32)
+		set(CMD md shaders)
+	else()
+		set(CMD mkdir -p shaders)
+	endif(WIN32)
+	add_custom_command(shaders-${PROJECT_NAME} COMMAND ${CMD} COMMENT "Create shader bin dir")
+endif()
+
 add_dependencies(${PROJECT_NAME} shaders-${PROJECT_NAME})
 
 foreach(ASSET ${ASSETS})
