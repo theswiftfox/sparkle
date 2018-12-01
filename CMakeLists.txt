@@ -48,6 +48,7 @@ set(SRC
 	src/main.cpp
 	src/Shader.cpp
 	src/Texture.cpp
+	src/UI.cpp
 
 	3rdParty/imgui/imgui.cpp
 	3rdParty/imgui/imgui_draw.cpp
@@ -63,6 +64,7 @@ set(HDR
 	src/include/Geometry.h
 	src/include/Shader.h
 	src/include/Texture.h
+	src/include/UI.h
 )
 
 set(SHADERS

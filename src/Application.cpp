@@ -1142,6 +1142,7 @@ void App::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImag
 	image.width = width;
 	image.height = height;
 	image.memory = imageMemory;
+	image.imageFormat = format;
 
 	// skip memory allocation. 
 	if (imageMemory == nullptr) return;
