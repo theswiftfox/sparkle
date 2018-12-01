@@ -86,6 +86,10 @@ namespace Engine {
 		void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED) const;
 		VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) const;
 		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuff = nullptr) const;
+
+		VkCommandBuffer beginOneTimeCommand() const;
+		void endOneTimeCommand(VkCommandBuffer buffer) const;
+
 	private:
 		/*
 		Members
@@ -245,9 +249,6 @@ namespace Engine {
 		void destroyCommandBuffers();
 		void recreateDrawCommandBuffers();
 		void recreateAllCommandBuffers();
-
-		VkCommandBuffer beginOneTimeCommand() const;
-		void endOneTimeCommand(VkCommandBuffer buffer) const;
 
 		RequiredQueueFamilyIndices getQueueFamilies(VkPhysicalDevice device ) const;
 		SwapChainSupportInfo getSwapChainSupportInfo(VkPhysicalDevice device) const;
