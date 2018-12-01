@@ -112,11 +112,81 @@ void GUI::initResources() {
 	std::array<VkWriteDescriptorSet, 1> writeSets = {
 		{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 0, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  }
 	};
+	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
 
 	VkPipelineCacheCreateInfo pipeCacheCreateInfo = {};
 	pipeCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 	
 	VK_THROW_ON_ERROR(vkCreatePipelineCache(device, &pipeCacheCreateInfo, nullptr, &pipelineCache), "Error creating pipeline cache for UI");
+
+	VkPushConstantRange pushConstRange = {};
+	pushConstRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstRange.size = sizeof(PushConstants);
+	pushConstRange.offset = 0;
+
+	VkPipelineLayoutCreateInfo pipeLayoutInfo = {};
+	pipeLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipeLayoutInfo.setLayoutCount = 1;
+	pipeLayoutInfo.pSetLayouts = &descriptorSetLayout;
+	pipeLayoutInfo.pushConstantRangeCount = 1;
+	pipeLayoutInfo.pPushConstantRanges = &pushConstRange;
+
+	VK_THROW_ON_ERROR(vkCreatePipelineLayout(device, &pipeLayoutInfo, nullptr, &pipelineLayout), "Error creating pipeline layout in UI");
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
+	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	VkPipelineRasterizationStateCreateInfo rasterizationInfo = {};
+	rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+	rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizationInfo.depthClampEnable = VK_FALSE;
+	rasterizationInfo.lineWidth = 1.0f;
+
+	VkPipelineColorBlendAttachmentState blendAttachments = {};
+	blendAttachments.blendEnable = VK_TRUE;
+	blendAttachments.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	blendAttachments.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	blendAttachments.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	blendAttachments.colorBlendOp = VK_BLEND_OP_ADD;
+	blendAttachments.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	blendAttachments.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	blendAttachments.alphaBlendOp = VK_BLEND_OP_ADD;
+
+	VkPipelineColorBlendStateCreateInfo blendInfo = {};
+	blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	blendInfo.attachmentCount = 1;
+	blendInfo.pAttachments = &blendAttachments;
+
+	VkPipelineDepthStencilStateCreateInfo depthStencilInfo = {};
+	depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilInfo.depthTestEnable = VK_FALSE;
+	depthStencilInfo.depthWriteEnable = VK_FALSE;
+	depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depthStencilInfo.front = depthStencilInfo.back;
+	depthStencilInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	VkPipelineViewportStateCreateInfo viewportInfo = {};
+	viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportInfo.viewportCount = 1;
+	viewportInfo.scissorCount = 1;
+
+	VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
+	multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+	std::array<VkDynamicState, 2> dynamicStates = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
+	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicStateInfo.pDynamicStates = dynamicStates.data();
 
 
 }

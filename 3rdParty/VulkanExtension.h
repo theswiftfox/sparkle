@@ -22,7 +22,7 @@
 		auto message = std::string(__func__);	\
 		message += " : ";						\
 		message += msg;							\
-		throw new std::runtime_error(message);	\
+		throw std::runtime_error(message);	\
 	}											\
 }			
 
