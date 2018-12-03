@@ -356,19 +356,19 @@ void App::updateUniforms() {
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
 	
-	pMainShaderProgram->updateUniformBufferObject(ubo);
+	/*pMainShaderProgram->updateUniformBufferObject(ubo);
 	Shaders::TesselationControlSettings tese = {};
 	pMainShaderProgram->updateTesselationControlSettings(tese);
 	pMainShaderProgram->updateDynamicUniformBufferObject(geometry);
 	
 	fragmentShaderSettings.greyscale = VK_FALSE;
-	pMainShaderProgram->updateFragmentShaderSettings(fragmentShaderSettings);
+	pMainShaderProgram->updateFragmentShaderSettings(fragmentShaderSettings);*/
 }
 
 void App::cleanupSwapChain() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	
-	pMainShaderProgram.reset();
+	//pMainShaderProgram.reset();
 
 	for (auto imageView : swapChainImageViews) {
 		vkDestroyImageView(pVulkanDevice, imageView, nullptr);
@@ -612,8 +612,8 @@ void App::createShaders() {
 		1.0f
 	};
 	std::cout << "App: CreateShaders: main rendering pipeline" << std::endl;
-	pMainShaderProgram = std::make_unique<Shaders::MainShaderProgram>(viewport, "shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", geometry.size());
-	std::dynamic_pointer_cast<Shaders::MainShaderProgram, Shaders::ShaderProgram>(pMainShaderProgram)->updateDynamicUniformBufferObject(geometry);
+	/*pMainShaderProgram = std::make_unique<Shaders::MainShaderProgram>(viewport, "shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", geometry.size());
+	std::dynamic_pointer_cast<Shaders::MainShaderProgram, Shaders::ShaderProgram>(pMainShaderProgram)->updateDynamicUniformBufferObject(geometry);*/
 
 }
 
@@ -799,7 +799,7 @@ void App::recreateAllCommandBuffers() {
 }
 
 void App::createCommandBuffers() {
-	commandBuffers.resize(pMainShaderProgram->getFramebufferPtrs().size());
+	//commandBuffers.resize(pMainShaderProgram->getFramebufferPtrs().size());
 
 	VkCommandBufferAllocateInfo allocInfo = {
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -818,7 +818,7 @@ void App::createCommandBuffers() {
 
 // Record Command Buffers for main geometry
 void App::recordCommandBuffers() {
-	auto swapChainFramebuffersRef = pMainShaderProgram->getFramebufferPtrs();
+	//auto swapChainFramebuffersRef = pMainShaderProgram->getFramebufferPtrs();
 
 	for (size_t i = 0; i < commandBuffers.size(); ++i) {
 		VkCommandBufferBeginInfo info = {
@@ -832,7 +832,7 @@ void App::recordCommandBuffers() {
 			throw std::runtime_error("Begin command buffer recording failed!");
 		}
 
-		std::array<VkClearValue, 2> clearValues = {};
+		/*std::array<VkClearValue, 2> clearValues = {};
 		clearValues[0].color = cClearColor;
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
@@ -847,9 +847,9 @@ void App::recordCommandBuffers() {
 			},
 			static_cast<uint32_t>(clearValues.size()),
 			clearValues.data()
-		};
+		};*/
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		/*vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pMainShaderProgram->getGraphicsPipelinePtr());
 		if (pDrawBuffer.buffer) {
@@ -872,7 +872,7 @@ void App::recordCommandBuffers() {
 					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 				}
 			}
-		}
+		}*/
 		vkCmdEndRenderPass(commandBuffers[i]);
 
 		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {

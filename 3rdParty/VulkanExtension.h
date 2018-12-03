@@ -11,7 +11,6 @@
 #define VULKAN_EXTENSION_H
 #include <vulkan/vulkan.h>
 
-#include <memory>
 #include <cassert>
 
 #include <iostream>
@@ -21,14 +20,15 @@
 	if ((f) != VK_SUCCESS) {					\
 		auto message = std::string(__func__);	\
 		message += " : ";						\
-		message += msg;							\
-		throw std::runtime_error(message);	\
+		message += (msg);						\
+		throw std::runtime_error(message);		\
 	}											\
 }			
 
 
 namespace vkExt {
 	struct SharedMemory {
+		VkDevice device;
 		VkDeviceMemory memory = nullptr;
 		VkDeviceSize size = 0;
 		void* mapped = nullptr;
@@ -37,15 +37,23 @@ namespace vkExt {
 
 		SharedMemory() {
 			memory = nullptr;
+			device = nullptr;
 			size = 0;
 		}
 
+		~SharedMemory()
+		{
+			if (memory && device)
+			{
+				vkFreeMemory(device, memory, nullptr);
+			}
+		}
 
 		SharedMemory(const SharedMemory& other) = delete;
 
 		VkResult map(VkDevice device, VkDeviceSize offset, VkMemoryMapFlags flags, VkDeviceSize mapSize = VK_WHOLE_SIZE) {
 			if (isMapped) return VK_SUCCESS;
-			auto res = vkMapMemory(device, memory, offset, mapSize, flags, &mapped);
+			const auto res = vkMapMemory(device, memory, offset, mapSize, flags, &mapped);
 			if (res == VK_SUCCESS) isMapped = true;
 			return res;
 		}
@@ -65,34 +73,34 @@ namespace vkExt {
 	struct Buffer {
 		VkDevice device = nullptr;
 		VkBuffer buffer = nullptr;
-		VkDescriptorBufferInfo descriptor;
-		uint32_t memoryOffset;
-		vkExt::SharedMemory* memory;
+		VkDescriptorBufferInfo descriptor{};
+		uint32_t memoryOffset{};
+		vkExt::SharedMemory* memory{};
 
 		void* mapped() {
 			assert(memory);
 			if (!memory->isMapped) {
-				auto res = map();
+				const auto res = map();
 				if (res != VK_SUCCESS) return nullptr;
 			}
-			return (void*)((uint32_t *)(memory->mapped) + memoryOffset);
+			return static_cast<void*>(static_cast<uint32_t *>(memory->mapped) + memoryOffset);
 		}
 
 		// Flags
-		VkBufferUsageFlags usageFlags;
+		VkBufferUsageFlags usageFlags{};
 
 		VkResult map(VkDeviceSize offset = 0) {
 			if (!memory) return VK_ERROR_MEMORY_MAP_FAILED;
-			auto offs = offset == 0 ? descriptor.offset : offset;
+			const auto offs = offset == 0 ? descriptor.offset : offset;
 			return memory->map(device, offs, 0);
 		}
 
-		void unmap() {
+		void unmap() const {
 			if (!memory) return;
 			memory->unmap(device);
 		}
 
-		void bind(VkDeviceSize offset = 0) {
+		void bind(VkDeviceSize offset = 0) const {
 			assert(memory);
 			vkBindBufferMemory(device, buffer, memory->memory, offset);
 		}
@@ -103,13 +111,13 @@ namespace vkExt {
 			descriptor.range = size;
 		}
 
-		void copyTo(const void* data, VkDeviceSize size, VkDeviceSize offset = 0) {
+		void copyTo(const void* data, VkDeviceSize size, VkDeviceSize offset = 0) const {
 			assert(memory->mapped);
 			assert(offset + size <= memory->size);
-			memcpy(static_cast<char*>(memory->mapped) + offset, data, (size_t)size);
+			memcpy(static_cast<char*>(memory->mapped) + offset, data, static_cast<size_t>(size));
 		}
 
-		void copyToBuffer(VkCommandBuffer cmdBuffer, Buffer srcBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) {
+		void copyToBuffer(VkCommandBuffer cmdBuffer, Buffer srcBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) const {
 			VkBufferCopy copyRegion = {
 				descriptor.offset + srcOffset,
 				dstOffset,
@@ -118,14 +126,14 @@ namespace vkExt {
 			vkCmdCopyBuffer(cmdBuffer, srcBuffer.buffer, buffer, 1, &copyRegion);
 		}
 
-		void copyToBuffer(VkCommandPool pool, VkQueue queue, Buffer srcBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) {
-			auto cmdBuff = beginSingleCommand(pool);
+		void copyToBuffer(VkCommandPool pool, VkQueue queue, Buffer srcBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) const {
+			const auto cmdBuff = beginSingleCommand(pool);
 			copyToBuffer(cmdBuff, srcBuffer, size, srcOffset, dstOffset);
 			endAndSubmitSingleCommand(cmdBuff, pool, queue);
 		}
 
-		void copyBufferToImage(VkCommandPool pool, VkQueue queue, VkImage image, uint32_t width, uint32_t height, VkDeviceSize srcOffset = 0) {
-			auto cmdBuff = beginSingleCommand(pool);
+		void copyBufferToImage(VkCommandPool pool, VkQueue queue, VkImage image, uint32_t width, uint32_t height, VkDeviceSize srcOffset = 0) const {
+			const auto cmdBuff = beginSingleCommand(pool);
 				VkBufferImageCopy copyRegion = {
 					descriptor.offset + srcOffset,
 					0,
@@ -138,7 +146,7 @@ namespace vkExt {
 			endAndSubmitSingleCommand(cmdBuff, pool, queue);
 		}
 
-		VkResult flush() {
+		VkResult flush() const {
 			assert(memory);
 			VkMappedMemoryRange mappedRange = {
 				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
@@ -150,7 +158,7 @@ namespace vkExt {
 			return vkFlushMappedMemoryRanges(device, 1, &mappedRange);
 		}
 
-		VkResult invalidate() {
+		VkResult invalidate() const {
 			assert(memory);
 			VkMappedMemoryRange mappedRange = {
 				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
@@ -162,7 +170,7 @@ namespace vkExt {
 			return vkInvalidateMappedMemoryRanges(device, 1, &mappedRange);
 		}
 
-		void destroy(bool freeMem = false) {
+		void destroy(bool freeMem = false) const {
 			unmap();
 			if (buffer) {
 				vkDestroyBuffer(device, buffer, nullptr);
@@ -174,7 +182,7 @@ namespace vkExt {
 		}
 
 	private:
-		VkCommandBuffer beginSingleCommand(VkCommandPool pool) {
+		VkCommandBuffer beginSingleCommand(VkCommandPool pool) const {
 			VkCommandBufferAllocateInfo allocInfo = {
 				VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 				nullptr,
@@ -189,13 +197,14 @@ namespace vkExt {
 			VkCommandBufferBeginInfo beginInfo = {
 				VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				nullptr,
-				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+				nullptr
 			};
 			vkBeginCommandBuffer(cmdBuff, &beginInfo);
 			return cmdBuff;
 		}
 
-		void endAndSubmitSingleCommand(VkCommandBuffer buffer, VkCommandPool pool, VkQueue queue) {
+		void endAndSubmitSingleCommand(VkCommandBuffer buffer, VkCommandPool pool, VkQueue queue) const {
 			vkEndCommandBuffer(buffer);
 
 			VkSubmitInfo submitInfo = {};
@@ -203,8 +212,8 @@ namespace vkExt {
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &buffer;
 
-			vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-			auto res = vkQueueWaitIdle(queue);
+			vkQueueSubmit(queue, 1, &submitInfo, nullptr);
+			const auto res = vkQueueWaitIdle(queue);
 			if (res != VK_SUCCESS) {
 				std::cerr << "QueueWait idle returned status " << res << std::endl;
 			}
@@ -216,12 +225,12 @@ namespace vkExt {
 	struct Image {
 		VkDevice device = nullptr;
 		VkImage image = nullptr;
-		vkExt::SharedMemory* memory;
+		vkExt::SharedMemory* memory{};
 		VkDeviceSize offset = 0;
-		int width, height;
-		VkFormat imageFormat;
+		uint32_t width{}, height{};
+		VkFormat imageFormat{};
 
-		void destroy(bool freeMem = false) {
+		void destroy(bool freeMem = false) const {
 			vkDestroyImage(device, image, nullptr);
 			if (freeMem) {
 				if (!memory) return;
@@ -229,23 +238,23 @@ namespace vkExt {
 			}
 		}
 
-		void copyTo(void* data, VkDeviceSize size) {
+		void copyTo(void* data, VkDeviceSize size) const {
 			assert(memory->mapped);
-			memcpy(memory->mapped, data, (size_t)size);
+			memcpy(memory->mapped, data, static_cast<size_t>(size));
 		}
 
 		VkResult map(VkDeviceSize offset = 0) {
 			if (!memory) return VK_ERROR_MEMORY_MAP_FAILED;
-			auto offs = offset == 0 ? this->offset : offset;
+			const auto offs = offset == 0 ? this->offset : offset;
 			return memory->map(device, offs, 0);
 		}
 
-		void unmap() {
+		void unmap() const {
 			if (!memory) return;
 			memory->unmap(device);
 		}
 
-		void bind(VkDeviceSize offset = 0) {
+		void bind(VkDeviceSize offset = 0) const {
 			assert(memory);
 			vkBindImageMemory(device, image, memory->memory, offset);
 		}

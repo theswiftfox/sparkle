@@ -46,6 +46,7 @@ set(SRC
 	src/FileReader.cpp
 	src/Geometry.cpp
 	src/main.cpp
+	src/GraphicsPipeline.cpp
 	src/Shader.cpp
 	src/Texture.cpp
 	src/UI.cpp
@@ -62,6 +63,7 @@ set(HDR
 	src/include/Camera.h
 	src/include/FileReader.h
 	src/include/Geometry.h
+	src/include/Pipeline.h
 	src/include/Shader.h
 	src/include/Texture.h
 	src/include/UI.h

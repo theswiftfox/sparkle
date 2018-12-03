@@ -35,7 +35,7 @@ void GUI::initResources() {
 	int widthTx, heightTx;
 
 	io.Fonts->GetTexDataAsRGBA32(&fontData, &widthTx, &heightTx);
-	VkDeviceSize fontSize = widthTx * heightTx * 4 * sizeof(char);
+	const VkDeviceSize fontSize = widthTx * heightTx * 4 * sizeof(char);
 
 	auto& app = App::getHandle();
 
@@ -50,7 +50,7 @@ void GUI::initResources() {
 	staging.copyTo(fontData, fontSize);
 	staging.unmap();
 
-	auto cmdCopy = app.beginOneTimeCommand();
+	const auto cmdCopy = app.beginOneTimeCommand();
 	app.transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdCopy);
 	
 	VkBufferImageCopy copyRegion = {};
@@ -188,5 +188,11 @@ void GUI::initResources() {
 	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 	dynamicStateInfo.pDynamicStates = dynamicStates.data();
 
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+
+	VkGraphicsPipelineCreateInfo pipelineInfo = {};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.layout = pipelineLayout;
+	
 
 }
