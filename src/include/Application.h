@@ -15,7 +15,7 @@
 #include "Geometry.h"
 #include "Texture.h"
 #include "Camera.h"
-#include "Shader.h"
+#include "GraphicsPipeline.h"
 
 constexpr auto WINDOW_WIDTH = 1024;
 constexpr auto WINDOW_HEIGHT = 768;
@@ -109,7 +109,7 @@ namespace Engine {
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
 		VkCommandPool pCommandPool;
-		std::shared_ptr<Shaders::MainShaderProgram> pMainShaderProgram;
+		std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
 		
 		VkQueue pGraphicsQueue;
 		VkQueue pPresentQueue;
