@@ -30,9 +30,11 @@ ShaderProgram::ShaderProgram(const std::string& vtxShaderFile, const std::string
 		fragmentShader = createShaderModule(fragShaderCode);
 	}
 
+	createUniformBuffer();
+	createDynamicBuffer(0);
 }
 
-ShaderProgram::~ShaderProgram() {
+void ShaderProgram::cleanup() const {
 	const auto& app = Engine::App::getHandle();
 	if (vertexShader)
 	{
@@ -98,7 +100,8 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() co
 		VkPipelineShaderStageCreateInfo stageInfo = {};
 		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stageInfo.module = vertexShader;
-		stageInfo.pName = "vertexShader";
+		stageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		stageInfo.pName = "main";
 		stages.push_back(stageInfo);
 	}
 	if (tessControlShader && tessEvalShader)
@@ -107,14 +110,16 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() co
 			VkPipelineShaderStageCreateInfo stageInfo = {};
 			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 			stageInfo.module = tessControlShader;
-			stageInfo.pName = "tessControlShader";
+			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+			stageInfo.pName = "main";
 			stages.push_back(stageInfo);
 		}
 		{
 			VkPipelineShaderStageCreateInfo stageInfo = {};
 			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 			stageInfo.module = tessEvalShader;
-			stageInfo.pName = "tessEvalShader";
+			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+			stageInfo.pName = "main";
 			stages.push_back(stageInfo);
 		}
 	}
@@ -123,7 +128,8 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() co
 		VkPipelineShaderStageCreateInfo stageInfo = {};
 		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stageInfo.module = fragmentShader;
-		stageInfo.pName = "fragmentShader";
+		stageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		stageInfo.pName = "main";
 		stages.push_back(stageInfo);
 	}
 

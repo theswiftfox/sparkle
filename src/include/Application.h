@@ -83,8 +83,8 @@ namespace Engine {
 		void allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) const;
 
 		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) const;
-		void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED) const;
-		VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) const;
+		void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
+		VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuff = nullptr) const;
 
 		VkCommandBuffer beginOneTimeCommand() const;
@@ -194,6 +194,9 @@ namespace Engine {
 		VkClearColorValue cClearColor = { 0.2f, 0.2f, 0.2f, 1.0f };
 		VkClearDepthStencilValue cClearDepth = { 1.0f, 0 };
 
+		std::vector<VkImage> deviceCreatedImages;
+		std::vector<VkImageView> deviceCreatedImageViews;
+
 		App() {
 			requiredFeatures.tessellationShader = VK_FALSE;
 			requiredFeatures.samplerAnisotropy = VK_TRUE;
@@ -235,7 +238,7 @@ namespace Engine {
 		void createImageViews();
 		void createCommandPool();
 		void createDepthResources();
-		void createShaders();
+		void createPipeline();
 		void createSamplerDescriptorSet();
 		void createDrawBuffer();
 		void createCommandBuffers();

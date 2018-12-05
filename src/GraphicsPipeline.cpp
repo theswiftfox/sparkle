@@ -33,11 +33,11 @@ void GraphicsPipeline::initPipeline()
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference colorAttRef = {};
+	VkAttachmentReference colorAttRef;
 	colorAttRef.attachment = 0;
 	colorAttRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference depthAttRef = {};
+	VkAttachmentReference depthAttRef;
 	depthAttRef.attachment = 1;
 	depthAttRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -72,7 +72,7 @@ void GraphicsPipeline::initPipeline()
 	VK_THROW_ON_ERROR(vkCreateRenderPass(app.getDevice(), &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
 
 	// create shader modules
-	shader = std::make_unique<Shaders::ShaderProgram>("shaders/shader.vert.spv", "", "", "shader.frag.spv", 0);
+	shader = std::make_unique<Shaders::ShaderProgram>("shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", 0);
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages = shader->getShaderStages();
 
@@ -138,6 +138,99 @@ void GraphicsPipeline::initPipeline()
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
 
+	std::vector <VkDescriptorSetLayoutBinding> bindings;
+
+	const VkDescriptorSetLayoutBinding uboBinding = {
+		0,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		1,
+		VK_SHADER_STAGE_VERTEX_BIT,
+		nullptr
+	};
+	bindings.push_back(uboBinding);
+
+	const VkDescriptorSetLayoutBinding modelBinding = {
+		1,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+		1,
+		VK_SHADER_STAGE_VERTEX_BIT,
+		nullptr
+	};
+	bindings.push_back(modelBinding);
+
+	if (shader->tesselationEnabled()) {
+		const VkDescriptorSetLayoutBinding teseSettingsBinding = {
+			4,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			1,
+			VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
+			nullptr
+		};
+		bindings.push_back(teseSettingsBinding);
+	}
+
+	const VkDescriptorSetLayoutBinding fragSettingsBinding = {
+		2,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		1,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		nullptr
+	};
+	bindings.push_back(fragSettingsBinding);
+
+	const VkDescriptorSetLayoutBinding colorTypeBinding = {
+		3,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+		1,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		nullptr
+	};
+	bindings.push_back(colorTypeBinding);
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		nullptr,
+		0,
+		static_cast<uint32_t>(bindings.size()),
+		bindings.data()
+	};
+
+	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(Engine::App::getHandle().getDevice(), &layoutInfo, nullptr, &pDescriptorSetLayout), "DescriptorSetLayout creation failed!");
+
+	std::array<VkDescriptorPoolSize, 2> sizes = {};
+	sizes[0] = {
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		3
+	};
+	sizes[1] = {
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+		2
+	};
+
+	VkDescriptorPoolCreateInfo info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		nullptr,
+		0,
+		1,
+		static_cast<uint32_t>(sizes.size()),
+		sizes.data()
+	};
+
+	VK_THROW_ON_ERROR(vkCreateDescriptorPool(Engine::App::getHandle().getDevice(), &info, nullptr, &pDescriptorPool), "DescriptorPool creation failed!");
+
+	VkDescriptorSetLayout layouts[] = { pDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		nullptr,
+		pDescriptorPool,
+		1,
+		layouts
+	};
+
+	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(app.getDevice(), &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
+
+	updateDescriptorSets();
+
 	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, app.getSamplerDescriptorSetLayout() };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -198,90 +291,6 @@ void GraphicsPipeline::initPipeline()
 
 		VK_THROW_ON_ERROR(vkCreateFramebuffer(app.getDevice(), &framebufferInfo, nullptr, &swapChainFramebuffers[i]), "ARShader: Framebuffer creation failed!");
 	}
-
-	std::vector <VkDescriptorSetLayoutBinding> bindings;
-
-	const VkDescriptorSetLayoutBinding uboBinding = {
-		0,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		1,
-		VK_SHADER_STAGE_VERTEX_BIT,
-		nullptr
-	};
-	bindings.push_back(uboBinding);
-
-	const VkDescriptorSetLayoutBinding modelBinding = {
-		1,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-		1,
-		VK_SHADER_STAGE_VERTEX_BIT,
-		nullptr
-	};
-	bindings.push_back(modelBinding);
-
-	if (shader->tesselationEnabled()) {
-		const VkDescriptorSetLayoutBinding teseSettingsBinding = {
-			3,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			1,
-			VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
-			nullptr
-		};
-		bindings.push_back(teseSettingsBinding);
-	}
-
-	const VkDescriptorSetLayoutBinding fragSettingsBinding = {
-		4,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		1,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		nullptr
-	};
-	bindings.push_back(fragSettingsBinding);
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo = {
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		nullptr,
-		0,
-		static_cast<uint32_t>(bindings.size()),
-		bindings.data()
-	};
-
-	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(Engine::App::getHandle().getDevice(), &layoutInfo, nullptr, &pDescriptorSetLayout), "DescriptorSetLayout creation failed!");
-
-	std::array<VkDescriptorPoolSize, 2> sizes = {};
-	sizes[0] = {
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		3
-	};
-	sizes[1] = {
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-		1
-	};
-
-	VkDescriptorPoolCreateInfo info = {
-		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		nullptr,
-		0,
-		1,
-		static_cast<uint32_t>(sizes.size()),
-		sizes.data()
-	};
-
-	VK_THROW_ON_ERROR(vkCreateDescriptorPool(Engine::App::getHandle().getDevice(), &info, nullptr, &pDescriptorPool), "DescriptorPool creation failed!");
-
-	VkDescriptorSetLayout layouts[] = { pDescriptorSetLayout };
-	VkDescriptorSetAllocateInfo allocInfo = {
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		nullptr,
-		pDescriptorPool,
-		1,
-		layouts
-	};
-
-	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(app.getDevice(), &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
-
-	updateDescriptorSets();
 }
 
 void GraphicsPipeline::updateDescriptorSets() const
@@ -325,7 +334,7 @@ void GraphicsPipeline::updateDescriptorSets() const
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
 			pDescriptorSet,
-			5,
+			3,
 			0,
 			1,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
@@ -336,25 +345,27 @@ void GraphicsPipeline::updateDescriptorSets() const
 		write.push_back(dyn);
 	}
 
-	const VkWriteDescriptorSet tese = {
-		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		nullptr,
-		pDescriptorSet,
-		3,
-		0,
-		1,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		nullptr,
-		&tessModel,
-		nullptr
-	};
-	write.push_back(tese);
+	if (shader->tesselationEnabled()) {
+		const VkWriteDescriptorSet tese = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			pDescriptorSet,
+			4,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			nullptr,
+			&tessModel,
+			nullptr
+		};
+		write.push_back(tese);
+	}
 
 	const VkWriteDescriptorSet frag = {
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		nullptr,
 		pDescriptorSet,
-		4,
+		2,
 		0,
 		1,
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -365,4 +376,24 @@ void GraphicsPipeline::updateDescriptorSets() const
 	write.push_back(frag);
 
 	vkUpdateDescriptorSets(App::getHandle().getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
+}
+
+void GraphicsPipeline::cleanup() {
+	const auto& app = App::getHandle();
+	const auto device = app.getDevice();
+
+//	vkFreeDescriptorSets(device, pDescriptorPool, 1, &pDescriptorSet);
+	vkDestroyDescriptorSetLayout(device, pDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorPool(device, pDescriptorPool, nullptr);
+
+	vkDestroyPipeline(device, pGraphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(device, pPipelineLayout, nullptr);
+	vkDestroyRenderPass(device, pRenderPass, nullptr);
+
+	for (auto& framebuffer : swapChainFramebuffers) {
+		vkDestroyFramebuffer(device, framebuffer, nullptr);
+	}
+
+	shader->cleanup();
+	shader.reset();
 }

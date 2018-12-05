@@ -63,7 +63,7 @@ set(HDR
 	src/include/Camera.h
 	src/include/FileReader.h
 	src/include/Geometry.h
-	src/include/Pipeline.h
+	src/include/GraphicsPipeline.h
 	src/include/Shader.h
 	src/include/Texture.h
 	src/include/UI.h
@@ -91,14 +91,7 @@ foreach(SHADER ${SHADERS})
 endforeach()
 	
 add_custom_target(shaders-${PROJECT_NAME} ALL DEPENDS ${compiled_shaders})
-if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-	if(WIN32)
-		set(CMD md shaders)
-	else()
-		set(CMD mkdir -p shaders)
-	endif(WIN32)
-	add_custom_command(shaders-${PROJECT_NAME} COMMAND ${CMD} COMMENT "Create shader bin dir")
-endif()
+add_custom_command(TARGET shaders-${PROJECT_NAME} COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/shaders COMMENT "Create shader bin dir")
 
 add_dependencies(${PROJECT_NAME} shaders-${PROJECT_NAME})
 
