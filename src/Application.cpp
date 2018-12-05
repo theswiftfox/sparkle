@@ -17,7 +17,6 @@
 #include <iostream>
 #include <algorithm>
 #include <stdexcept>
-#include "FileReader.h"
 
 using namespace Engine;
 
@@ -44,7 +43,7 @@ void App::setupVulkan() {
 	createDepthResources();
 	createDrawBuffer();
 	createSamplerDescriptorSet();
-	createShaders();
+	createPipeline();
 	createCommandBuffers();
 	createSyncObjects();
 	setupGui();
@@ -356,22 +355,27 @@ void App::updateUniforms() {
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
 	
-	/*pMainShaderProgram->updateUniformBufferObject(ubo);
+	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
+	shaderProg->updateUniformBufferObject(ubo);
 	Shaders::TesselationControlSettings tese = {};
-	pMainShaderProgram->updateTesselationControlSettings(tese);
-	pMainShaderProgram->updateDynamicUniformBufferObject(geometry);
+	shaderProg->updateTesselationControlSettings(tese);
+	shaderProg->updateDynamicUniformBufferObject(geometry);
 	
-	fragmentShaderSettings.greyscale = VK_FALSE;
-	pMainShaderProgram->updateFragmentShaderSettings(fragmentShaderSettings);*/
+	shaderProg->updateFragmentShaderSettings(fragmentShaderSettings);
 }
 
 void App::cleanupSwapChain() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	
-	//pMainShaderProgram.reset();
+	pGraphicsPipeline->cleanup();
+	pGraphicsPipeline.reset();
 
 	for (auto imageView : swapChainImageViews) {
 		vkDestroyImageView(pVulkanDevice, imageView, nullptr);
+		auto i = std::find(deviceCreatedImageViews.begin(), deviceCreatedImageViews.end(), imageView);
+		if (i != deviceCreatedImageViews.end()) {
+			deviceCreatedImageViews.erase(i);
+		}
 	}
 
 	vkDestroySwapchainKHR(pVulkanDevice, pSwapChain, nullptr);	
@@ -396,6 +400,14 @@ void App::cleanup() {
 		mesh.reset();
 	}
 	geometry.clear();
+
+	for (auto& imageView : deviceCreatedImageViews) {
+		vkDestroyImageView(pVulkanDevice, imageView, nullptr);
+	}
+
+	for (auto& image : deviceCreatedImages) {
+		vkDestroyImage(pVulkanDevice, image, nullptr);
+	}
 
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
@@ -532,7 +544,7 @@ void App::recreateSwapChain() {
 	createSwapChain();
 	createImageViews();
 	createDepthResources();
-	createShaders();
+	createPipeline();
 	createCommandBuffers();
 
 	createSyncObjects();
@@ -602,7 +614,7 @@ void App::createImageViews() {
 	}
 }
 
-void App::createShaders() {
+void App::createPipeline() {
 	VkViewport viewport = {
 		0.0f,
 		0.0f,
@@ -611,10 +623,9 @@ void App::createShaders() {
 		0.0f,
 		1.0f
 	};
-	std::cout << "App: CreateShaders: main rendering pipeline" << std::endl;
-	/*pMainShaderProgram = std::make_unique<Shaders::MainShaderProgram>(viewport, "shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", geometry.size());
-	std::dynamic_pointer_cast<Shaders::MainShaderProgram, Shaders::ShaderProgram>(pMainShaderProgram)->updateDynamicUniformBufferObject(geometry);*/
-
+	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
+	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(geometry);
 }
 
 void App::createCommandPool()
@@ -818,7 +829,7 @@ void App::createCommandBuffers() {
 
 // Record Command Buffers for main geometry
 void App::recordCommandBuffers() {
-	//auto swapChainFramebuffersRef = pMainShaderProgram->getFramebufferPtrs();
+	auto swapChainFramebuffersRef = pGraphicsPipeline->getFramebufferPtrs();
 
 	for (size_t i = 0; i < commandBuffers.size(); ++i) {
 		VkCommandBufferBeginInfo info = {
@@ -832,14 +843,14 @@ void App::recordCommandBuffers() {
 			throw std::runtime_error("Begin command buffer recording failed!");
 		}
 
-		/*std::array<VkClearValue, 2> clearValues = {};
+		std::array<VkClearValue, 2> clearValues = {};
 		clearValues[0].color = cClearColor;
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
 		VkRenderPassBeginInfo renderPassInfo = {
 			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			nullptr,
-			pMainShaderProgram->getRenderPassPtr(),
+			pGraphicsPipeline->getRenderPassPtr(),
 			swapChainFramebuffersRef[i],
 			{
 				{ 0, 0 },
@@ -847,14 +858,16 @@ void App::recordCommandBuffers() {
 			},
 			static_cast<uint32_t>(clearValues.size()),
 			clearValues.data()
-		};*/
+		};
 
-		/*vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pMainShaderProgram->getGraphicsPipelinePtr());
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getVkGraphicsPipelinePtr());
 		if (pDrawBuffer.buffer) {
 			VkBuffer vtxBuffers[] = { pDrawBuffer.buffer }; 
 			vkCmdBindIndexBuffer(commandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
+
+			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
 
 			for (auto j = 0; j < geometry.size(); ++j) {
 				auto& mesh = geometry[j];
@@ -862,17 +875,17 @@ void App::recordCommandBuffers() {
 				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vtxBuffers, offsets);
 
-				uint32_t dynamicOffsets[] = { j * pMainShaderProgram->getDynamicAlignment(), j * pMainShaderProgram->getDynamicStatusAlignment() };
+				uint32_t dynamicOffsets[] = { j * shaderProgram->getDynamicAlignment(), j * shaderProgram->getDynamicStatusAlignment() };
 
 				std::vector<VkDescriptorSet> sets;
-				sets.push_back(pMainShaderProgram->getDescriptorSetPtr());
+				sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
 				sets.push_back(mesh->getDescriptorSet());
 				if (pCamera) {
-					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pMainShaderProgram->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), 2, dynamicOffsets);
+					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), 2, dynamicOffsets);
 					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 				}
 			}
-		}*/
+		}
 		vkCmdEndRenderPass(commandBuffers[i]);
 
 		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
@@ -1098,7 +1111,7 @@ void App::allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, ui
 		findMemoryType(memoryTypeFilterBits, properties)
 	};
 
-	auto result = vkAllocateMemory(pVulkanDevice, &allocInfo, nullptr, &memory->memory);
+	const auto result = vkAllocateMemory(pVulkanDevice, &allocInfo, nullptr, &memory->memory);
 	if (result != VK_SUCCESS) {
 		if (result == VK_ERROR_TOO_MANY_OBJECTS) {
 			throw std::runtime_error("Too many memory allocations");
@@ -1109,7 +1122,7 @@ void App::allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, ui
 	memory->isAlive = true;
 }
 
-void App::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset, VkImageLayout initialLayout /*= VK_IMAGE_LAYOUT_UNDEFINED*/) const {
+void App::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset, VkImageLayout initialLayout /*= VK_IMAGE_LAYOUT_UNDEFINED*/) {
 	VkImage vkimage;
 
 	VkImageFormatProperties props;
@@ -1136,6 +1149,7 @@ void App::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImag
 	if (vkCreateImage(pVulkanDevice, &imageInfo, nullptr, &vkimage) != VK_SUCCESS) {
 		throw std::runtime_error("Image creation failed!");
 	}
+	deviceCreatedImages.push_back(vkimage);
 
 	image.device = pVulkanDevice;
 	image.image = vkimage;
@@ -1170,7 +1184,7 @@ void App::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImag
 	}
 }
 
-VkImageView App::createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) const {
+VkImageView App::createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
 	VkImageViewCreateInfo createInfo = {
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		nullptr,
@@ -1197,6 +1211,7 @@ VkImageView App::createImageView2D(VkImage image, VkFormat format, VkImageAspect
 	if (vkCreateImageView(pVulkanDevice, &createInfo, nullptr, &view) != VK_SUCCESS) {
 		throw std::runtime_error("ImageView creation failed!");
 	}
+	deviceCreatedImageViews.push_back(view);
 	return view;
 }
 

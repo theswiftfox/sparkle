@@ -9,17 +9,23 @@ namespace Engine
 	class GraphicsPipeline
 	{
 	public:
-		GraphicsPipeline(VkViewport targetViewport);
+		GraphicsPipeline(VkViewport targetViewport) : viewport(targetViewport) {
+			initPipeline();
+		}
+
 		void initPipeline();
 		void updateDescriptorSets() const;
 		
 		auto getFramebufferPtr() { return swapChainFramebuffers.data(); }
 		auto getFramebufferPtrs() const { return swapChainFramebuffers; }
 		auto getRenderPassPtr() const { return pRenderPass; }
-		auto getGraphicsPipelinePtr() const { return pGraphicsPipeline; }
+		auto getVkGraphicsPipelinePtr() const { return pGraphicsPipeline; }
 		auto getPipelineLayoutPtr() const { return pPipelineLayout; }
 		auto getDescriptorSetPtr() const { return pDescriptorSet; }
 
+		auto getShaderProgramPtr() const { return shader; }
+
+		void cleanup();
 
 	private:
 		VkDescriptorSetLayout pDescriptorSetLayout{};

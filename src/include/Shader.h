@@ -1,10 +1,8 @@
 #ifndef SHADER_H
 #define SHADER_H
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
-#include "Camera.h"
 #include "VulkanExtension.h"
 #include "Geometry.h"
 
@@ -47,7 +45,8 @@ namespace Engine {
 		
 		public:
 			ShaderProgram(const std::string& vtxShaderFile, const std::string& tescShaderFile, const std::string& teseShaderFile, const std::string& fragShaderFile, size_t objectInstances);
-			~ShaderProgram();
+
+			void cleanup() const;
 
 			void updateUniformBufferObject(const UBO& ubo);
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Mesh>>& meshes);
