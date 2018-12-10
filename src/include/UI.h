@@ -9,6 +9,8 @@
 namespace Engine {
 	class GUI {
 	private:
+		std::shared_ptr<Engine::RenderBackend> renderBackend;
+
 		VkSampler sampler;
 		vkExt::Buffer vertexBuffer;
 		vkExt::Buffer indexBuffer;
@@ -35,7 +37,8 @@ namespace Engine {
 		} pushConstants;
 
 		GUI() {
-			device = App::getHandle().getDevice();
+			renderBackend = App::getHandle().getRenderBackend();
+			device = renderBackend->getDevice();
 			ImGui::CreateContext();
 		}
 

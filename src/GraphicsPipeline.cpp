@@ -9,11 +9,11 @@ using namespace Engine;
 
 void GraphicsPipeline::initPipeline()
 {
-	auto& app = App::getHandle();
-	const auto& device = app.getDevice();
+	auto& renderer = App::getHandle().getRenderBackend();
+	const auto& device = renderer->getDevice();
 
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = app.getImageFormat();
+	colorAttachment.format = renderer->getImageFormat();
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -22,7 +22,7 @@ void GraphicsPipeline::initPipeline()
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	const auto depthFormat = app.getDepthFormat();
+	const auto depthFormat = renderer->getDepthFormat();
 	VkAttachmentDescription depthAttachment = {};
 	depthAttachment.format = depthFormat;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -69,7 +69,7 @@ void GraphicsPipeline::initPipeline()
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	VK_THROW_ON_ERROR(vkCreateRenderPass(app.getDevice(), &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
+	VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
 
 	// create shader modules
 	shader = std::make_unique<Shaders::ShaderProgram>("shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", 0);
@@ -98,7 +98,7 @@ void GraphicsPipeline::initPipeline()
 
 	VkRect2D scissor = {
 		{ 0, 0 },
-		app.getSwapChainExtent()
+		renderer->getSwapChainExtent()
 	};
 
 	VkPipelineViewportStateCreateInfo viewportState = {};
@@ -195,7 +195,7 @@ void GraphicsPipeline::initPipeline()
 		bindings.data()
 	};
 
-	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(Engine::App::getHandle().getDevice(), &layoutInfo, nullptr, &pDescriptorSetLayout), "DescriptorSetLayout creation failed!");
+	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &pDescriptorSetLayout), "DescriptorSetLayout creation failed!");
 
 	std::array<VkDescriptorPoolSize, 2> sizes = {};
 	sizes[0] = {
@@ -216,7 +216,7 @@ void GraphicsPipeline::initPipeline()
 		sizes.data()
 	};
 
-	VK_THROW_ON_ERROR(vkCreateDescriptorPool(Engine::App::getHandle().getDevice(), &info, nullptr, &pDescriptorPool), "DescriptorPool creation failed!");
+	VK_THROW_ON_ERROR(vkCreateDescriptorPool(device, &info, nullptr, &pDescriptorPool), "DescriptorPool creation failed!");
 
 	VkDescriptorSetLayout layouts[] = { pDescriptorSetLayout };
 	VkDescriptorSetAllocateInfo allocInfo = {
@@ -227,11 +227,11 @@ void GraphicsPipeline::initPipeline()
 		layouts
 	};
 
-	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(app.getDevice(), &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
+	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
 
 	updateDescriptorSets();
 
-	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, app.getSamplerDescriptorSetLayout() };
+	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, renderer->getSamplerDescriptorSetLayout() };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 2;
@@ -266,9 +266,9 @@ void GraphicsPipeline::initPipeline()
 
 	VK_THROW_ON_ERROR(vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineInfo, nullptr, &pGraphicsPipeline), "Pipeline creation failed!");
 
-	const auto& imageViewsRef = app.getSwapChainImageViewsRef();
-	const auto& depthViewsRef = app.getDepthImageViewsRef();
-	const auto& extent = app.getSwapChainExtent();
+	const auto& imageViewsRef = renderer->getSwapChainImageViewsRef();
+	const auto& depthViewsRef = renderer->getDepthImageViewsRef();
+	const auto& extent = renderer->getSwapChainExtent();
 
 	swapChainFramebuffers.resize(imageViewsRef.size());
 	for (size_t i = 0; i < swapChainFramebuffers.size(); ++i) {
@@ -289,7 +289,7 @@ void GraphicsPipeline::initPipeline()
 			1
 		};
 
-		VK_THROW_ON_ERROR(vkCreateFramebuffer(app.getDevice(), &framebufferInfo, nullptr, &swapChainFramebuffers[i]), "ARShader: Framebuffer creation failed!");
+		VK_THROW_ON_ERROR(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]), "ARShader: Framebuffer creation failed!");
 	}
 }
 
@@ -375,12 +375,12 @@ void GraphicsPipeline::updateDescriptorSets() const
 	};
 	write.push_back(frag);
 
-	vkUpdateDescriptorSets(App::getHandle().getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
+	vkUpdateDescriptorSets(App::getHandle().getRenderBackend()->getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
 }
 
 void GraphicsPipeline::cleanup() {
-	const auto& app = App::getHandle();
-	const auto device = app.getDevice();
+	const auto& renderer = App::getHandle().getRenderBackend();
+	const auto device = renderer->getDevice();
 
 //	vkFreeDescriptorSets(device, pDescriptorPool, 1, &pDescriptorSet);
 	vkDestroyDescriptorSetLayout(device, pDescriptorSetLayout, nullptr);

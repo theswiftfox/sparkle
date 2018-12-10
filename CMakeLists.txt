@@ -40,7 +40,7 @@ include_directories("${Vulkan_INCLUDE_DIR}")
 # endforeach()
 
 set(SRC
-	#src/Application.cpp
+	src/Application.cpp
 	src/AppSettings.cpp
 	src/Camera.cpp
 	src/FileReader.cpp

@@ -37,21 +37,19 @@ void GUI::initResources() {
 	io.Fonts->GetTexDataAsRGBA32(&fontData, &widthTx, &heightTx);
 	const VkDeviceSize fontSize = widthTx * heightTx * 4 * sizeof(char);
 
-	auto& app = App::getHandle();
-
-	app.createImage2D(widthTx, heightTx, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
-	fontImageView = app.createImageView2D(fontImage.image, fontImage.imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+	renderBackend->createImage2D(widthTx, heightTx, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
+	fontImageView = renderBackend->createImageView2D(fontImage.image, fontImage.imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	vkExt::Buffer staging;
-	vkExt::SharedMemory* stagingMem;
-	app.createBuffer(fontSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);
+	vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
+	renderBackend->createBuffer(fontSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);
 
 	staging.map();
-	staging.copyTo(fontData, fontSize);
+		staging.copyTo(fontData, fontSize);
 	staging.unmap();
 
-	const auto cmdCopy = app.beginOneTimeCommand();
-	app.transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdCopy);
+	const auto cmdCopy = renderBackend->beginOneTimeCommand();
+	renderBackend->transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdCopy);
 	
 	VkBufferImageCopy copyRegion = {};
 	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -59,9 +57,9 @@ void GUI::initResources() {
 	copyRegion.imageExtent = { fontImage.width, fontImage.height, 1 };
 
 	vkCmdCopyBufferToImage(cmdCopy, staging.buffer, fontImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-	app.transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	renderBackend->transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	app.endOneTimeCommand(cmdCopy);
+	renderBackend->endOneTimeCommand(cmdCopy);
 	staging.destroy(true);
 
 	VkSamplerCreateInfo samplerInfo = {};
