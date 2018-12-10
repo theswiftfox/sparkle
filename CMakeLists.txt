@@ -40,13 +40,14 @@ include_directories("${Vulkan_INCLUDE_DIR}")
 # endforeach()
 
 set(SRC
-	src/Application.cpp
+	#src/Application.cpp
 	src/AppSettings.cpp
 	src/Camera.cpp
 	src/FileReader.cpp
 	src/Geometry.cpp
 	src/main.cpp
 	src/GraphicsPipeline.cpp
+	src/RenderBackend.cpp
 	src/Shader.cpp
 	src/Texture.cpp
 	src/UI.cpp
@@ -64,6 +65,7 @@ set(HDR
 	src/include/FileReader.h
 	src/include/Geometry.h
 	src/include/GraphicsPipeline.h
+	src/include/RenderBackend.h
 	src/include/Shader.h
 	src/include/Texture.h
 	src/include/UI.h
