@@ -35,22 +35,22 @@ ShaderProgram::ShaderProgram(const std::string& vtxShaderFile, const std::string
 }
 
 void ShaderProgram::cleanup() const {
-	const auto& app = Engine::App::getHandle();
+	const auto device = Engine::App::getHandle().getRenderBackend()->getDevice();
 	if (vertexShader)
 	{
-		vkDestroyShaderModule(app.getDevice(), vertexShader, nullptr);
+		vkDestroyShaderModule(device, vertexShader, nullptr);
 	}
 	if (tessControlShader)
 	{
-		vkDestroyShaderModule(app.getDevice(), tessControlShader, nullptr);
+		vkDestroyShaderModule(device, tessControlShader, nullptr);
 	}
 	if (tessEvalShader)
 	{
-		vkDestroyShaderModule(app.getDevice(), tessEvalShader, nullptr);
+		vkDestroyShaderModule(device, tessEvalShader, nullptr);
 	}
 	if (fragmentShader)
 	{
-		vkDestroyShaderModule(app.getDevice(), fragmentShader, nullptr);
+		vkDestroyShaderModule(device, fragmentShader, nullptr);
 	}
 
 	pUniformBuffer.destroy(true);
@@ -143,10 +143,10 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() co
 
 void ShaderProgram::createUniformBuffer()
 {
-	auto& app = Engine::App::getHandle();
+	const auto& renderer = Engine::App::getHandle().getRenderBackend();
 
 	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(app.getPhysicalDevice(), &props);
+	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = props.limits.minUniformBufferOffsetAlignment;
 
 	const auto uboSize = sizeof(UBO);
@@ -168,11 +168,11 @@ void ShaderProgram::createUniformBuffer()
 	const auto fragSize = sizeof(FragmentShaderSettings);
 
 	const auto bufferSize = fragSettingsOffset + fragSize;
-	app.createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pUniformBuffer, pUniformBufferMemory);
+	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pUniformBuffer, pUniformBufferMemory);
 }
 
 void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
-	auto& app = Engine::App::getHandle();
+	const auto& renderer = Engine::App::getHandle().getRenderBackend();
 
 	if (pDynamicBuffer.buffer) {
 		pDynamicBuffer.destroy(true);
@@ -188,7 +188,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	objectCount = size;
 
 	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(app.getPhysicalDevice(), &props);
+	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = static_cast<uint32_t>(props.limits.minUniformBufferOffsetAlignment);
 
 	dynamicAlignment = static_cast<uint32_t>(sizeof(glm::mat4));
@@ -199,7 +199,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	dynamicUboDataSize = objectCount > 0 ? objectCount * dynamicAlignment : dynamicAlignment;
 	dynamicUboData.model = (glm::mat4*)_aligned_malloc(dynamicUboDataSize, dynamicAlignment);
 
-	app.createBuffer(dynamicUboDataSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicBuffer, pDynamicBufferMemory);
+	renderer->createBuffer(dynamicUboDataSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicBuffer, pDynamicBufferMemory);
 	
 	pDynamicBuffer.map();
 
@@ -214,7 +214,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	dynamicVertexTypeSize = objectCount > 0 ? objectCount * statusAlignment : statusAlignment;
 	dynamicVertexTypeData.value = (VkBool32*)_aligned_malloc(dynamicVertexTypeSize, statusAlignment);
 
-	app.createBuffer(dynamicVertexTypeSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicVertexTypeBuffer, pDynamicVertexTypeMemory);
+	renderer->createBuffer(dynamicVertexTypeSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicVertexTypeBuffer, pDynamicVertexTypeMemory);
 
 	pDynamicVertexTypeBuffer.map();
 
@@ -272,7 +272,7 @@ VkShaderModule ShaderProgram::createShaderModule(const std::vector<char>& code) 
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(Engine::App::getHandle().getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+	if (vkCreateShaderModule(Engine::App::getHandle().getRenderBackend()->getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
 		throw std::runtime_error("Shader Module creation failed!");
 	}
 	return shaderModule;

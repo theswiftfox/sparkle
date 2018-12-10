@@ -161,17 +161,17 @@ void Mesh::createDescriptorPool() {
 		&size
 	};
 
-	if (vkCreateDescriptorPool(App::getHandle().getDevice(), &info, nullptr, &pDescriptorPool) != VK_SUCCESS) {
+	if (vkCreateDescriptorPool(App::getHandle().getRenderBackend()->getDevice(), &info, nullptr, &pDescriptorPool) != VK_SUCCESS) {
 		throw std::runtime_error("Mesh:: DescriptorPool creation failed!");
 	}
 }
 
 void Mesh::createDescriptorSetLayout() {
-	pDescriptorSetLayout = App::getHandle().getSamplerDescriptorSetLayout();
+	pDescriptorSetLayout = App::getHandle().getRenderBackend()->getSamplerDescriptorSetLayout();
 }
 
 void Mesh::createDescriptorSet() {
-	auto& app = App::getHandle();
+	auto device = App::getHandle().getRenderBackend()->getDevice();
 	VkDescriptorSetLayout layouts[] = { pDescriptorSetLayout };
 	VkDescriptorSetAllocateInfo allocInfo = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -181,7 +181,7 @@ void Mesh::createDescriptorSet() {
 		layouts
 	};
 
-	if (vkAllocateDescriptorSets(app.getDevice(), &allocInfo, &pDescriptorSet) != VK_SUCCESS) {
+	if (vkAllocateDescriptorSets(device, &allocInfo, &pDescriptorSet) != VK_SUCCESS) {
 		throw std::runtime_error("DescriptorSet allocation failed!");
 	}
 
@@ -200,7 +200,7 @@ void Mesh::createDescriptorSet() {
 			nullptr
 		};
 
-		vkUpdateDescriptorSets(app.getDevice(), 1, &sampler, 0, nullptr);
+		vkUpdateDescriptorSets(device, 1, &sampler, 0, nullptr);
 	}
 }
 
@@ -284,4 +284,16 @@ void Geometry::Mesh::meshFromVertsAndIndices(std::vector<Vertex> verts, std::vec
 	createDescriptorSet();
 
 	bufferOffset = App::getHandle().storeMesh(this);
+}
+
+void Engine::Geometry::Scene::storeMesh(std::shared_ptr<Mesh> m)
+{
+	meshes.push_back(m);
+}
+
+void Engine::Geometry::Scene::cleanup() {
+	for (auto& mesh : meshes) {
+		mesh.reset();
+	}
+	meshes.clear();
 }

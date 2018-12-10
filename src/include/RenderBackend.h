@@ -17,6 +17,11 @@
 #include "AppSettings.h"
 #include "GraphicsPipeline.h"
 
+#define MAX_FRAMES_IN_FLIGHT 2
+#define DEVICE_NOT_SUITABLE 0
+
+#define INTEL_GPU_BUILD // TODO: change to dynamic check if intel gpu..
+
 namespace Engine {
 	namespace Vulkan {
 		struct RequiredQueueFamilyIndices {
@@ -39,10 +44,10 @@ namespace Engine {
 
 	class RenderBackend {
 	public:
-		RenderBackend(GLFWwindow* windowPtr);
+		RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene);
 
-		void initialize(Settings config, bool withValidation = false);
-		void drawFrame(double deltaT);
+		void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
+		void draw(double deltaT);
 		void updateUniforms();
 
 		void cleanup();
@@ -60,6 +65,7 @@ namespace Engine {
 		}
 		VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
 		const std::vector<VkImageView>& getSwapChainImageViewsRef() const { return swapChainImageViews; }
+		const std::vector<VkImageView>& getDepthImageViewsRef() const { return depthImageViews; }
 		VkDescriptorSetLayout getSamplerDescriptorSetLayout() const { return pSamplerSetLayout; }
 
 		/*
@@ -75,8 +81,10 @@ namespace Engine {
 		VkCommandBuffer beginOneTimeCommand() const;
 		void endOneTimeCommand(VkCommandBuffer buffer) const;
 	private:
-		std::unique_ptr<Camera> pCamera;
+		std::string appName;
 
+		std::shared_ptr<Camera> pCamera;
+		std::shared_ptr<Geometry::Scene> pScene;
 
 		GLFWwindow* pWindow;
 
@@ -120,6 +128,10 @@ namespace Engine {
 		std::vector<VkImage> swapChainImages;
 		std::vector<VkImageView> swapChainImageViews;
 
+		std::vector<vkExt::Image> depthImages;
+		std::vector<VkImageView> depthImageViews;
+		std::vector<vkExt::SharedMemory*> depthImageMemory;
+
 		VkDescriptorSetLayout pSamplerSetLayout;
 
 		VkPhysicalDeviceFeatures requiredFeatures = { };
@@ -137,6 +149,13 @@ namespace Engine {
 #else
 		bool enableValidationLayers = false;
 #endif
+		VkClearColorValue cClearColor = { 0.2f, 0.2f, 0.2f, 1.0f };
+		VkClearDepthStencilValue cClearDepth = { 1.0f, 0 };
+
+		std::vector<VkImage> deviceCreatedImages;
+		std::vector<VkImageView> deviceCreatedImageViews;
+
+
 		void setupVulkan();
 
 		/*
@@ -158,7 +177,6 @@ namespace Engine {
 		void recordCommandBuffers();
 		void createSyncObjects();
 		void setupGui();
-		void setupApplicationData(std::string config);
 		void increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSize newIndexLimit);
 		void cleanupSwapChain();
 		void recreateSwapChain();

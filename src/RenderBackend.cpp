@@ -1,5 +1,8 @@
 #include "RenderBackend.h"
 
+#include <map>
+#include <set>
+
 using namespace Engine;
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
@@ -31,7 +34,24 @@ void RenderBackend::setupVulkan() {
 	setupGui();
 }
 
-void RenderBackend::drawFrame(double deltaT) {
+Engine::RenderBackend::RenderBackend(GLFWwindow * windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene)
+{
+	pWindow = windowPtr;
+	appName = name;
+	pCamera = camera;
+	pScene = scene;
+}
+
+void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withValidation) {
+	enableValidationLayers = withValidation;
+
+	// todo:
+	// * load settings
+
+	setupVulkan();
+}
+
+void RenderBackend::draw(double deltaT) {
 	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetFences(pVulkanDevice, 1, &inFlightFences[frameCounter]);
 
@@ -101,40 +121,11 @@ void RenderBackend::drawFrame(double deltaT) {
 		vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &cmdBuff);
 	}
 	auto renderQueued = false;
-	if (!geometry.empty()) {
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-		VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
-
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-
-		std::vector<VkCommandBuffer> cmdBuffers;
-
-		cmdBuffers.push_back(commandBuffers[imageIndex]);
-
-		submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
-		submitInfo.pCommandBuffers = cmdBuffers.data();
-
-		VkSemaphore signalSemaphores[] = { semRenderFinished[frameCounter] };
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
-
-		auto res = vkQueueSubmit(pGraphicsQueue, 1, &submitInfo, inFlightFences[frameCounter]);
-		renderQueued = true;
-		if (res != VK_SUCCESS) {
-			throw std::runtime_error("Queue submission failed! FrameIndex: " + std::to_string(frameCounter) + " Error: " + std::to_string(res));
-		}
-	}
 
 	// final pass draws GUI elements on top of the current framebuffer image
-	drawGui(imageIndex, renderQueued);
+	// drawGui(imageIndex, renderQueued);
 
-	VkSemaphore guiDrawnSemaphore[] = { semGuiRendered[frameCounter] };
+	VkSemaphore guiDrawnSemaphore[] = { semImageAvailable[frameCounter] };
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
@@ -172,9 +163,7 @@ void RenderBackend::updateUniforms() {
 	shaderProg->updateUniformBufferObject(ubo);
 	Shaders::TesselationControlSettings tese = {};
 	shaderProg->updateTesselationControlSettings(tese);
-	shaderProg->updateDynamicUniformBufferObject(geometry);
-
-	shaderProg->updateFragmentShaderSettings(fragmentShaderSettings);
+	// update geometry
 }
 
 void RenderBackend::cleanupSwapChain() {
@@ -204,15 +193,6 @@ void RenderBackend::cleanup() {
 	cleanupSwapChain();
 
 	pDrawBuffer.destroy(true); // cleanup vertex buffer and memory
-
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-
-	for (auto& mesh : geometry) {
-		mesh.reset();
-	}
-	geometry.clear();
 
 	for (auto& imageView : deviceCreatedImageViews) {
 		vkDestroyImageView(pVulkanDevice, imageView, nullptr);
@@ -245,7 +225,7 @@ void RenderBackend::createVulkanInstance() {
 	VkApplicationInfo appInfo = {
 		VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		nullptr,
-		APP_NAME,
+		appName.c_str(),
 		VK_MAKE_VERSION(0, 1, 0),
 		"Ghost Engine",
 		VK_MAKE_VERSION(0, 0, 0),
@@ -348,10 +328,6 @@ void RenderBackend::createSurface() {
 void RenderBackend::recreateSwapChain() {
 	vkDeviceWaitIdle(pVulkanDevice); // do not destroy old swapchain while in use!
 
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-
 	cleanupSwapChain();
 
 	createSwapChain();
@@ -438,7 +414,7 @@ void RenderBackend::createPipeline() {
 	};
 	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
 	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(geometry);
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getMeshes());
 }
 
 void RenderBackend::createCommandPool()
@@ -504,105 +480,6 @@ void RenderBackend::createSamplerDescriptorSet() {
 	if (vkCreateDescriptorSetLayout(pVulkanDevice, &layoutInfo, nullptr, &pSamplerSetLayout) != VK_SUCCESS) {
 		throw std::runtime_error("DescriptorSetLayout creation failed!");
 	}
-}
-
-
-// Setup Code for DearImGui
-void RenderBackend::setupGui() {
-	windowData = {};
-	windowData.Surface = pSurface;
-
-	const uint32_t queueFam = getQueueFamilies(pPhysicalDevice).graphicsFamily;
-
-	windowData.SurfaceFormat = surfaceFormat;
-	windowData.PresentMode = presentMode;
-	ImGui_ImplVulkanH_CreateWindowDataCommandBuffers(pPhysicalDevice, pVulkanDevice, queueFam, &windowData, nullptr);
-	windowData.Swapchain = pSwapChain;
-	windowData.ClearEnable = false;
-	windowData.Width = swapChainExtent.width;
-	windowData.Height = swapChainExtent.height;
-	windowData.BackBufferCount = static_cast<uint32_t>(swapChainImages.size());
-	windowData.BackBuffer = swapChainImages.data();
-	windowData.BackBufferView = swapChainImageViews.data();
-	windowData.Framebuffer = new VkFramebuffer[swapChainImages.size()];
-
-	ImGui_ImplVulkanH_CreateWindowDataSwapChainAndFramebuffer(pPhysicalDevice, pVulkanDevice, &windowData, nullptr, swapChainExtent.width, swapChainExtent.height);
-
-	VkDescriptorPoolSize poolSizes[] = {
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	};
-	VkDescriptorPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	poolInfo.maxSets = 1000 * IM_ARRAYSIZE(poolSizes);
-	poolInfo.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(poolSizes));
-	poolInfo.pPoolSizes = poolSizes;
-
-	checkVkResult(vkCreateDescriptorPool(pVulkanDevice, &poolInfo, nullptr, &pGuiDescriptorPool));
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	imguiIo = ImGui::GetIO();
-
-	ImGui_ImplGlfw_InitForVulkan(pWindow, true);
-
-	ImGui_ImplVulkan_InitInfo initInfo = {};
-	initInfo.Instance = pVulkanInstance;
-	initInfo.PhysicalDevice = pPhysicalDevice;
-	initInfo.Device = pVulkanDevice;
-	initInfo.QueueFamily = queueFam;
-	initInfo.Queue = pGraphicsQueue;
-	initInfo.PipelineCache = VK_NULL_HANDLE;
-	initInfo.DescriptorPool = pGuiDescriptorPool;
-	initInfo.Allocator = VK_NULL_HANDLE;
-	initInfo.CheckVkResultFn = checkVkResult;
-	ImGui_ImplVulkan_Init(&initInfo, windowData.RenderPass);
-
-	ImGui::StyleColorsDark();
-
-	VkCommandPool commandPool = windowData.Frames[windowData.FrameIndex].CommandPool;
-	VkCommandBuffer cmdBuff = windowData.Frames[windowData.FrameIndex].CommandBuffer;
-
-	checkVkResult(vkResetCommandPool(pVulkanDevice, commandPool, 0));
-	VkCommandBufferBeginInfo begin = {};
-	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	checkVkResult(vkBeginCommandBuffer(cmdBuff, &begin));
-
-	ImGui_ImplVulkan_CreateFontsTexture(cmdBuff);
-
-	VkSubmitInfo submit = {};
-	submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit.commandBufferCount = 1;
-	submit.pCommandBuffers = &cmdBuff;
-
-	checkVkResult(vkEndCommandBuffer(cmdBuff));
-	checkVkResult(vkQueueSubmit(pGraphicsQueue, 1, &submit, nullptr));
-
-	checkVkResult(vkDeviceWaitIdle(pVulkanDevice));
-	ImGui_ImplVulkan_InvalidateFontUploadObjects();
-
-}
-
-// Load some default settings for the Application.
-// TODO: todo: put in config ini or similar
-void RenderBackend::setupApplicationData(std::string config) {
-
-	fragmentShaderSettings.ambient = 0.3f;
-	fragmentShaderSettings.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	fragmentShaderSettings.lightDirection = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	fragmentShaderSettings.shininess = 0.5f;
-
 }
 
 void RenderBackend::destroyCommandBuffers() {
@@ -681,9 +558,10 @@ void RenderBackend::recordCommandBuffers() {
 			vkCmdBindIndexBuffer(commandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
 
 			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
+			const auto meshes = pScene->getMeshes();
 
-			for (auto j = 0; j < geometry.size(); ++j) {
-				auto& mesh = geometry[j];
+			for (auto j = 0; j < meshes.size(); ++j) {
+				auto& mesh = meshes[j];
 
 				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vtxBuffers, offsets);
@@ -710,7 +588,6 @@ void RenderBackend::recordCommandBuffers() {
 void RenderBackend::createSyncObjects() {
 	semImageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
 	semRenderFinished.resize(MAX_FRAMES_IN_FLIGHT);
-	semGuiRendered.resize(MAX_FRAMES_IN_FLIGHT);
 	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkSemaphoreCreateInfo semInfo = {
@@ -725,11 +602,15 @@ void RenderBackend::createSyncObjects() {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
 		if (vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semImageAvailable[i]) != VK_SUCCESS ||
 			vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semRenderFinished[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semGuiRendered[i]) != VK_SUCCESS ||
 			vkCreateFence(pVulkanDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
 			throw std::runtime_error("Synchronization obejct creation failed!");
 		}
 	}
+}
+
+void Engine::RenderBackend::setupGui()
+{
+	// todo
 }
 
 void RenderBackend::setupDebugCallback() {
@@ -1132,8 +1013,8 @@ void RenderBackend::transitionImageLayout(VkImage image, VkFormat format, VkImag
 	}
 }
 
-RequiredQueueFamilyIndices RenderBackend::getQueueFamilies(VkPhysicalDevice device) const {
-	RequiredQueueFamilyIndices indices;
+Vulkan::RequiredQueueFamilyIndices RenderBackend::getQueueFamilies(VkPhysicalDevice device) const {
+	Vulkan::RequiredQueueFamilyIndices indices;
 
 	uint32_t queueFamCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamCount, nullptr);
@@ -1164,8 +1045,8 @@ RequiredQueueFamilyIndices RenderBackend::getQueueFamilies(VkPhysicalDevice devi
 	return indices;
 }
 
-SwapChainSupportInfo RenderBackend::getSwapChainSupportInfo(VkPhysicalDevice device) const {
-	SwapChainSupportInfo info;
+Vulkan::SwapChainSupportInfo RenderBackend::getSwapChainSupportInfo(VkPhysicalDevice device) const {
+	Vulkan::SwapChainSupportInfo info;
 
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, pSurface, &info.capabilities);
 
@@ -1236,9 +1117,12 @@ VkExtent2D RenderBackend::getSwapExtent(const VkSurfaceCapabilitiesKHR& capabili
 		return capabilities.currentExtent;
 	}
 	else {
-		auto width = WINDOW_WIDTH;
-		auto height = WINDOW_HEIGHT;
+		auto width = 0;
+		auto height = 0;
 		glfwGetWindowSize(pWindow, &width, &height);
+		if (width <= 0 || height <= 0) {
+			throw std::runtime_error("Unable to get Window size for swap extent");
+		}
 		VkExtent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 		extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
 		extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
@@ -1366,21 +1250,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL RenderBackend::debugCallback(
 	return VK_FALSE;
 }
 
-void RenderBackend::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	// ignore mouse events if:
-	if (ImGui::IsAnyItemHovered() || ImGui::IsAnyWindowHovered() || imguiHandlesMouse || !acceptingInput) return;
-	if (action == GLFW_RELEASE) {
-		if (button == GLFW_MOUSE_BUTTON_LEFT) {
-			//acceptingInput = false;
-			message.clear();
-		}
-		else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-			acceptingInput = false;
-			message.clear();
-		}
-	}
-}
-
 VkResult CreateDebugReportCallbackEXT(
 	VkInstance instance,
 	const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
@@ -1404,3 +1273,4 @@ void DestroyDebugReportCallbackEXT(
 	if (func) {
 		func(instance, callback, pAllocator);
 	}
+}

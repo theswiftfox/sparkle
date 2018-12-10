@@ -193,6 +193,16 @@ namespace Engine {
 			void createDescriptorSet();
 			void meshFromVertsAndIndices(std::vector<Vertex> verts, std::vector<uint32_t> inds);
 		};
+
+		class Scene {
+		public:
+			void storeMesh(std::shared_ptr<Mesh> m);
+			auto getMeshes() { return meshes; }
+
+			void cleanup();
+		private:
+			std::vector<std::shared_ptr<Mesh>> meshes;
+		};
 	}
 }
 
