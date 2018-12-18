@@ -52,7 +52,7 @@ namespace Engine {
 
 		void cleanup();
 
-		Geometry::Mesh::BufferOffset storeMesh(const Geometry::Mesh* mesh);
+		Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
 		
 		VkDevice getDevice() const { return pVulkanDevice; }
@@ -66,7 +66,8 @@ namespace Engine {
 		VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
 		const std::vector<VkImageView>& getSwapChainImageViewsRef() const { return swapChainImageViews; }
 		const std::vector<VkImageView>& getDepthImageViewsRef() const { return depthImageViews; }
-		VkDescriptorSetLayout getSamplerDescriptorSetLayout() const { return pSamplerSetLayout; }
+		const VkDescriptorSetLayout& getMaterialDescriptorSetLayout() const { return pMaterialDescriptorSetLayout; }
+		const size_t getMaterialTextureLimit() const { return materialTextureLimit; }
 
 		/*
 		* Vulkan Resource creation
@@ -132,7 +133,8 @@ namespace Engine {
 		std::vector<VkImageView> depthImageViews;
 		std::vector<vkExt::SharedMemory*> depthImageMemory;
 
-		VkDescriptorSetLayout pSamplerSetLayout;
+		VkDescriptorSetLayout pMaterialDescriptorSetLayout;
+		size_t materialTextureLimit = 2; // one diffuse and one specular for now
 
 		VkPhysicalDeviceFeatures requiredFeatures = { };
 
@@ -170,8 +172,8 @@ namespace Engine {
 		void createImageViews();
 		void createCommandPool();
 		void createDepthResources();
+		void createMaterialDescriptorSetLayout();
 		void createPipeline();
-		void createSamplerDescriptorSet();
 		void createDrawBuffer();
 		void createCommandBuffers();
 		void recordCommandBuffers();

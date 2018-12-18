@@ -8,7 +8,7 @@ int main(const int argc, char** argv) {
 	const auto validation = true;
 
 	try {
-		std::string config;
+		std::string config = "assets/settings.ini";
 		if (argc > 1) {
 			config = argv[1];
 		}

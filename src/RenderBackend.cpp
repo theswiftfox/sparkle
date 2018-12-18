@@ -27,7 +27,7 @@ void RenderBackend::setupVulkan() {
 	createCommandPool();
 	createDepthResources();
 	createDrawBuffer();
-	createSamplerDescriptorSet();
+	createMaterialDescriptorSetLayout();
 	createPipeline();
 	createCommandBuffers();
 	createSyncObjects();
@@ -74,62 +74,40 @@ void RenderBackend::draw(double deltaT) {
 	}
 #endif
 
-
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("Aquisation of SwapChain Image failed");
 	}
 
 	{
-		auto& dst = swapChainImages[imageIndex];
-		VkImageSubresourceRange range = {};
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range.levelCount = 1;
-		range.layerCount = 1;
+		VkSubmitInfo renderInfo{};
+		renderInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		auto cmdBuff = beginOneTimeCommand();
-		transitionImageLayout(dst, swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuff);
-
-		vkCmdClearColorImage(cmdBuff, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor, 1, &range);
-		transitionImageLayout(dst, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, cmdBuff);
-
-		vkEndCommandBuffer(cmdBuff);
-
-		VkSubmitInfo submitInfo = {};
-
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
-
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &cmdBuff;
+		renderInfo.waitSemaphoreCount = 1;
+		renderInfo.pWaitSemaphores = waitSemaphores;
+		renderInfo.pWaitDstStageMask = waitStages;
 
-		VkSemaphore signalSemaphores[] = { semImageAvailable[frameCounter] };
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
+		renderInfo.commandBufferCount = 1;
+		renderInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
-		auto res = vkQueueSubmit(pGraphicsQueue, 1, &submitInfo, inFlightFences[frameCounter]);
-		if (res != VK_SUCCESS) {
-			throw std::runtime_error("Clear Screen failed! Error: " + std::to_string(res));
-		}
+		VkSemaphore signalSemaphores[] = { semRenderFinished[frameCounter] };
+		renderInfo.signalSemaphoreCount = 1;
+		renderInfo.pSignalSemaphores = signalSemaphores;
 
-		vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, std::numeric_limits<uint64_t>::max());
-		vkResetFences(pVulkanDevice, 1, &inFlightFences[frameCounter]);
-
-		vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &cmdBuff);
+		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, inFlightFences[frameCounter]), "Error occured during rendering pass");
 	}
+
 	auto renderQueued = false;
 
 	// final pass draws GUI elements on top of the current framebuffer image
 	// drawGui(imageIndex, renderQueued);
 
-	VkSemaphore guiDrawnSemaphore[] = { semImageAvailable[frameCounter] };
+	VkSemaphore presetReadySemaphore[] = { semRenderFinished[frameCounter] };
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = guiDrawnSemaphore;
+	presentInfo.pWaitSemaphores = presetReadySemaphore;
 
 	VkSwapchainKHR swapChains[] = { pSwapChain };
 	presentInfo.swapchainCount = 1;
@@ -403,6 +381,35 @@ void RenderBackend::createImageViews() {
 	}
 }
 
+void RenderBackend::createMaterialDescriptorSetLayout() {
+	std::vector< VkDescriptorSetLayoutBinding> textureBindings;
+	size_t texBinding = 0;
+	for (size_t i = 0; i < materialTextureLimit; ++i) {
+		VkDescriptorSetLayoutBinding fragSamplerBinding = {
+			texBinding,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		};
+
+		textureBindings.push_back(fragSamplerBinding);
+		++texBinding;
+	}
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		nullptr,
+		0,
+		static_cast<uint32_t>(textureBindings.size()),
+		textureBindings.data()
+	};
+
+	if (vkCreateDescriptorSetLayout(pVulkanDevice, &layoutInfo, nullptr, &pMaterialDescriptorSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("DescriptorSetLayout creation failed!");
+	}
+}
+
 void RenderBackend::createPipeline() {
 	VkViewport viewport = {
 		0.0f,
@@ -414,7 +421,7 @@ void RenderBackend::createPipeline() {
 	};
 	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
 	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getMeshes());
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 }
 
 void RenderBackend::createCommandPool()
@@ -452,36 +459,6 @@ void RenderBackend::createDepthResources() {
 	}
 }
 
-void RenderBackend::createSamplerDescriptorSet() {
-	VkDescriptorSetLayoutBinding vertSamplerBinding = {
-		0,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		1,
-		VK_SHADER_STAGE_VERTEX_BIT,
-		nullptr
-	};
-
-	VkDescriptorSetLayoutBinding fragSamplerBinding = {
-		0,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		1,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		nullptr
-	};
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo = {
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		nullptr,
-		0,
-		1,
-		&fragSamplerBinding
-	};
-
-	if (vkCreateDescriptorSetLayout(pVulkanDevice, &layoutInfo, nullptr, &pSamplerSetLayout) != VK_SUCCESS) {
-		throw std::runtime_error("DescriptorSetLayout creation failed!");
-	}
-}
-
 void RenderBackend::destroyCommandBuffers() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 }
@@ -500,7 +477,7 @@ void RenderBackend::recreateAllCommandBuffers() {
 }
 
 void RenderBackend::createCommandBuffers() {
-	//commandBuffers.resize(pMainShaderProgram->getFramebufferPtrs().size());
+	commandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
 
 	VkCommandBufferAllocateInfo allocInfo = {
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -558,21 +535,23 @@ void RenderBackend::recordCommandBuffers() {
 			vkCmdBindIndexBuffer(commandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
 
 			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
-			const auto meshes = pScene->getMeshes();
+			const auto meshes = pScene->getRenderableScene();
 
 			for (auto j = 0; j < meshes.size(); ++j) {
-				auto& mesh = meshes[j];
+				auto& node = meshes[j];
+				if (!node->drawable()) continue;
+				auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
 
 				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vtxBuffers, offsets);
 
-				uint32_t dynamicOffsets[] = { j * shaderProgram->getDynamicAlignment(), j * shaderProgram->getDynamicStatusAlignment() };
+				std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
 
 				std::vector<VkDescriptorSet> sets;
 				sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
-				sets.push_back(mesh->getDescriptorSet());
+				sets.push_back(mesh->getMaterial()->getDescriptorSet());
 				if (pCamera) {
-					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), 2, dynamicOffsets);
+					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 				}
 			}
@@ -674,7 +653,7 @@ void RenderBackend::increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSi
 }
 
 
-Geometry::Mesh::BufferOffset RenderBackend::storeMesh(const Geometry::Mesh* mesh) {
+Geometry::Mesh::BufferOffset RenderBackend::uploadMeshGPU(const Geometry::Mesh* mesh) {
 	const auto indexOffset = lastIndexOffset / sizeof(uint32_t);
 	const auto vertexOffset = lastVertexOffset;
 

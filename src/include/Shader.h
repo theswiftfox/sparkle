@@ -23,10 +23,6 @@ namespace Engine {
 			glm::mat4* model;
 		} InstancedUBO;
 
-		typedef struct VertexType {
-			VkBool32* value;
-		} VertexType;
-
 		typedef struct TesselationControlSettings {
 
 		} TesselationControlSettings;
@@ -49,12 +45,11 @@ namespace Engine {
 			void cleanup() const;
 
 			void updateUniformBufferObject(const UBO& ubo);
-			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Mesh>>& meshes);
+			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
 			void updateTesselationControlSettings(const TesselationControlSettings& sets);
 			void updateFragmentShaderSettings(const FragmentShaderSettings& sets);
 
 			auto getDynamicAlignment() const { return dynamicAlignment; }
-			auto getDynamicStatusAlignment() const { return statusAlignment; }
 
 			std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
 			auto tesselationEnabled() const
@@ -66,7 +61,6 @@ namespace Engine {
 
 			vkExt::Buffer pUniformBuffer;
 			vkExt::Buffer pDynamicBuffer;
-			vkExt::Buffer pDynamicVertexTypeBuffer;
 
 		private:
 			VkShaderModule vertexShader = nullptr;
@@ -83,12 +77,9 @@ namespace Engine {
 
 			size_t objectCount;
 			uint32_t dynamicAlignment{};
-			uint32_t statusAlignment{};
 
 			InstancedUBO dynamicUboData{};
 			VkDeviceSize dynamicUboDataSize{};
-			VertexType dynamicVertexTypeData{};
-			VkDeviceSize dynamicVertexTypeSize{};
 
 			void createUniformBuffer();
 			void createDynamicBuffer(VkDeviceSize size);
