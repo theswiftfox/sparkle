@@ -31,7 +31,7 @@ namespace Engine {
 			cleanup();
 		}
 
-		Geometry::Mesh::BufferOffset storeMesh(const Geometry::Mesh* m);
+		Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* m);
 
 		std::shared_ptr<RenderBackend> getRenderBackend() { return pRenderer; }
 

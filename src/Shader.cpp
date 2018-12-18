@@ -64,9 +64,6 @@ void ShaderProgram::cleanup() const {
 	if (pDynamicBufferMemory) {
 		delete(pDynamicBufferMemory);
 	}
-	if (pDynamicVertexTypeBuffer.buffer) {
-		pDynamicVertexTypeBuffer.destroy(true);
-	}
 	if (pDynamicVertexTypeMemory) {
 		delete(pDynamicVertexTypeMemory);
 	}
@@ -179,11 +176,6 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 
 		_aligned_free(dynamicUboData.model);
 	}
-	if (pDynamicVertexTypeBuffer.buffer) {
-		pDynamicVertexTypeBuffer.destroy(true);
-
-		_aligned_free(dynamicVertexTypeData.value);
-	}
 
 	objectCount = size;
 
@@ -203,40 +195,19 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	
 	pDynamicBuffer.map();
 
-	statusAlignment = static_cast<uint32_t>(sizeof(VkBool32));
-	if (alignment > 0) {
-		statusAlignment = (statusAlignment + alignment - 1) & ~(alignment - 1);
-	}
-	if (statusAlignment < (2 * static_cast<uint32_t>(sizeof(VkBool32)))) {
-		// todo
-		throw std::runtime_error("alignment too small for status dUBO");
-	}
-	dynamicVertexTypeSize = objectCount > 0 ? objectCount * statusAlignment : statusAlignment;
-	dynamicVertexTypeData.value = (VkBool32*)_aligned_malloc(dynamicVertexTypeSize, statusAlignment);
-
-	renderer->createBuffer(dynamicVertexTypeSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicVertexTypeBuffer, pDynamicVertexTypeMemory);
-
-	pDynamicVertexTypeBuffer.map();
-
 	getDescriptorInfos();
 }
 
-void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Engine::Geometry::Mesh>>& meshes) {
-	if (!(pDynamicBuffer.buffer && pDynamicVertexTypeBuffer.buffer) || meshes.size() * dynamicAlignment > dynamicUboDataSize) {
+void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Engine::Geometry::Node>>& meshes) {
+	if (!(pDynamicBuffer.buffer) || meshes.size() * dynamicAlignment > dynamicUboDataSize) {
 		createDynamicBuffer(meshes.size());
 	}
 	for (auto i = 0; i < meshes.size(); ++i) {
 		const auto model = (glm::mat4*)((uint64_t)dynamicUboData.model + i * dynamicAlignment);
-		const auto useTex = (VkBool32*)((uint64_t)dynamicVertexTypeData.value + i * statusAlignment);
-		const auto selected = (VkBool32*)((uint64_t)dynamicVertexTypeData.value + i * statusAlignment + sizeof(VkBool32));
-		*model = glm::mat4(meshes[i]->modelMat());
-		*useTex = meshes[i]->getStatus().useTexture;
-		*selected = meshes[i]->getStatus().isSelected;
+		*model = glm::mat4(meshes[i]->accumModel());
 	}
 	pDynamicBuffer.copyTo(dynamicUboData.model, dynamicUboDataSize);
 	pDynamicBuffer.flush();
-	pDynamicVertexTypeBuffer.copyTo(dynamicVertexTypeData.value, dynamicVertexTypeSize);
-	pDynamicVertexTypeBuffer.flush();
 }
 
 

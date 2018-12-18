@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(sparkle-engine VERSION 0.1 LANGUAGES CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake-modules")
+
 if (NOT MSVC)
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		add_compile_options("-stdlib=libc++")
@@ -27,12 +29,17 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
+set(ASSIMP_NO_EXPORT ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rdParty/assimp)
+
 include_directories("${CMAKE_SOURCE_DIR}/src/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glm")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
 include_directories("${Vulkan_INCLUDE_DIR}")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/assimp/include")
 
 # get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 # foreach(dir ${dirs})
@@ -47,6 +54,7 @@ set(SRC
 	src/Geometry.cpp
 	src/main.cpp
 	src/GraphicsPipeline.cpp
+	src/Material.cpp
 	src/RenderBackend.cpp
 	src/Shader.cpp
 	src/Texture.cpp
@@ -65,6 +73,7 @@ set(HDR
 	src/include/FileReader.h
 	src/include/Geometry.h
 	src/include/GraphicsPipeline.h
+	src/include/Material.h
 	src/include/RenderBackend.h
 	src/include/Shader.h
 	src/include/Texture.h
@@ -77,7 +86,7 @@ set(SHADERS
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw)
+target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw assimp)
 
 foreach(SHADER ${SHADERS})
 	get_filename_component(FILE_NAME ${SHADER} NAME)

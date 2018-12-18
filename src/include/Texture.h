@@ -19,7 +19,11 @@ namespace Engine {
 			};
 			return info;
 		}
+		const auto path() const { return filePath; }
+
 	private:
+		std::string filePath;
+
 		int width, height, channels;
 		
 		vkExt::SharedMemory* texMemory;

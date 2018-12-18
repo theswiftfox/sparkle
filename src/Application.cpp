@@ -73,8 +73,8 @@ void App::cleanup() {
 }
 
 
-Geometry::Mesh::BufferOffset App::storeMesh(const Geometry::Mesh* mesh) {
-	return pRenderer->storeMesh(mesh);
+Geometry::Mesh::BufferOffset App::uploadMeshGPU(const Geometry::Mesh* mesh) {
+	return pRenderer->uploadMeshGPU(mesh);
 }
 
 void App::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {

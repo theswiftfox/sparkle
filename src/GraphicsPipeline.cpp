@@ -15,22 +15,22 @@ void GraphicsPipeline::initPipeline()
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = renderer->getImageFormat();
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	const auto depthFormat = renderer->getDepthFormat();
 	VkAttachmentDescription depthAttachment = {};
 	depthAttachment.format = depthFormat;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference colorAttRef;
@@ -231,7 +231,7 @@ void GraphicsPipeline::initPipeline()
 
 	updateDescriptorSets();
 
-	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, renderer->getSamplerDescriptorSetLayout() };
+	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, renderer->getMaterialDescriptorSetLayout() };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 2;
@@ -324,22 +324,6 @@ void GraphicsPipeline::updateDescriptorSets() const
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 			nullptr,
 			&shader->pDynamicBuffer.descriptor,
-			nullptr
-		};
-		write.push_back(dyn);
-	}
-
-	if (shader->pDynamicVertexTypeBuffer.buffer) {
-		const VkWriteDescriptorSet dyn = {
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			nullptr,
-			pDescriptorSet,
-			3,
-			0,
-			1,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			nullptr,
-			&shader->pDynamicVertexTypeBuffer.descriptor,
 			nullptr
 		};
 		write.push_back(dyn);
