@@ -3,19 +3,28 @@
 
 layout(location=0) in vec3 pos;
 layout(location=1) in vec3 normal;
-layout(location=2) in vec2 uv;
-
-layout (location = 0) out vec2 fragUV;
-layout (location = 1) out vec3 fragNormal;
-layout (location = 2) out vec3 worldPos;
+layout(location=2) in vec3 tangent;
+layout(location=3) in vec3 bitangent;
+layout(location=4) in vec2 uv;
 
 out gl_PerVertex {
 	vec4 gl_Position;
 };
 
+layout(location = 0) out VS_OUT {
+	vec2 uv;
+	vec3 normal;
+	vec3 position;
+	vec3 tangentPos;
+	vec3 tangentViewPos;
+	vec3 tangentLightPos;
+} vs_out;
+
 layout(binding=0) uniform UniformBufferObject {
 	mat4 view;
 	mat4 projection;
+	vec3 cameraPos;
+	vec3 lightPos;
 } ubo;
 
 layout(binding=1) uniform DynamicUniformBufferObject {
@@ -25,7 +34,19 @@ layout(binding=1) uniform DynamicUniformBufferObject {
 void main() {
 	vec4 posW = dUbo.model * vec4(pos, 1.0);
 	gl_Position = ubo.projection * ubo.view * posW;
-	worldPos = posW.xyz;
-    fragNormal = normal;
-	fragUV = uv;
+
+	vec3 T = normalize((dUbo.model * vec4(tangent, 1.0)).xyz);
+	vec3 B = normalize((dUbo.model * vec4(bitangent, 1.0)).xyz);
+	vec3 N = normalize((dUbo.model * vec4(normal, 1.0)).xyz);
+
+	mat3 TBN = transpose(mat3(T, B, N));
+
+	vs_out.uv = uv;
+	vs_out.normal = normal;
+	vs_out.position = posW.xyz;
+
+	vs_out.tangentPos = TBN * posW.xyz;
+	vs_out.tangentViewPos = TBN * ubo.cameraPos;
+	vs_out.tangentLightPos = TBN * ubo.lightPos;
+
 }

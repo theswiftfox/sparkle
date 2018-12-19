@@ -67,7 +67,7 @@ void Engine::Geometry::Scene::cleanup() {
 	textureCache.clear();
 }
 
-std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextures(aiMaterial * mat, aiTextureType type, std::string typeName)
+std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextures(aiMaterial * mat, aiTextureType type, size_t typeID)
 {
 	std::vector<std::shared_ptr<Texture>> textures;
 	
@@ -75,9 +75,17 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 		aiString str;
 		mat->GetTexture(type, i, &str);
 
+		auto stdString = std::string(str.C_Str());
+		auto dirOffs = stdString.rfind('/');
+		dirOffs = dirOffs == std::string::npos ? stdString.rfind('\\') : dirOffs;
+		if (dirOffs != std::string::npos) {
+			stdString = stdString.substr(dirOffs + 1);
+		}
+
+		stdString = rootDirectory + stdString.c_str();
 		bool isLoaded = false;
 		for (const auto& tex : textureCache) {
-			if (std::strcmp(tex->path().c_str(), str.C_Str()) == 0) {
+			if (std::strcmp(tex->path().c_str(), stdString.c_str()) == 0) {
 				textures.push_back(tex);
 				isLoaded = true;
 				break;
@@ -85,7 +93,7 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 		}
 
 		if (!isLoaded) {
-			auto tex = std::make_shared<Texture>(rootDirectory + str.C_Str());
+			auto tex = std::make_shared<Texture>(stdString, typeID);
 			textureCache.push_back(tex);
 			textures.push_back(tex);
 		}
@@ -123,6 +131,10 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 			vtx.position = glm::vec3(aiVtx.x, -aiVtx.y, aiVtx.z);
 			auto norm = aiMeshData->mNormals[j];
 			vtx.normal = glm::vec3(norm.x, norm.y, norm.z);
+			auto tang = aiMeshData->mTangents[j];
+			vtx.tangent = glm::vec3(tang.x, tang.y, tang.z);
+			auto btang = aiMeshData->mBitangents[j];
+			vtx.bitangent = glm::vec3(btang.x, btang.y, btang.z);
 
 			if (aiMeshData->mTextureCoords[0]) {
 				auto tc = aiMeshData->mTextureCoords[0][j];
@@ -145,8 +157,10 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 			auto aiMat = scene->mMaterials[aiMeshData->mMaterialIndex];
 			auto textures = loadMaterialTextures(aiMat, aiTextureType_DIFFUSE, TEX_TYPE_DIFFUSE);
 			auto spec = loadMaterialTextures(aiMat, aiTextureType_SPECULAR, TEX_TYPE_SPECULAR);
+			auto norm = loadMaterialTextures(aiMat, aiTextureType_HEIGHT, TEX_TYPE_NORMAL);
 
 			textures.insert(textures.end(), spec.begin(), spec.end());
+			textures.insert(textures.end(), norm.begin(), norm.end());
 
 			material = std::make_shared<Material>(textures);
 		}
@@ -195,13 +209,13 @@ void Engine::Geometry::Scene::loadFromFile(const std::string& fileName) {
 		throw std::runtime_error("Unable to load scene from " + fileName);
 	}
 
-	auto dirOffs = std::find(fileName.rbegin(), fileName.rend(), '/');
-	if (dirOffs != fileName.rend()) {
-		rootDirectory = fileName.substr(0, (fileName.rend() - dirOffs));
-
+	auto dirOffs = fileName.rfind('/');
+	dirOffs = dirOffs == std::string::npos ? fileName.rfind('\\') : dirOffs;
+	if (dirOffs != std::string::npos) {
+		rootDirectory = fileName.substr(0, dirOffs) + "/";
 	}
 	else {
-		rootDirectory = "assets";
+		rootDirectory = "assets/";
 	}
 
 	processAINode(aiScene->mRootNode, aiScene, root);

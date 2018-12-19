@@ -8,7 +8,7 @@
 namespace Engine {
 	class Texture {
 	public:
-		Texture(std::string filePath);
+		Texture(std::string filePath, size_t typeID);
 		~Texture();
 
 		VkDescriptorImageInfo descriptor() const {
@@ -21,8 +21,12 @@ namespace Engine {
 		}
 		const auto path() const { return filePath; }
 
+		const auto type() const { return typeID; }
+
 	private:
 		std::string filePath;
+
+		size_t typeID;
 
 		int width, height, channels;
 		

@@ -5,7 +5,7 @@
 
 int main(const int argc, char** argv) {
 	auto& app = Engine::App::getHandle();
-	const auto validation = true;
+	const auto validation = false;
 
 	try {
 		std::string config = "assets/settings.ini";

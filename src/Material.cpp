@@ -2,7 +2,11 @@
 
 #include "Application.h"
 
-Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) : textures(textures) {
+Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) {
+	for (const auto& tex : textures) {
+		this->textures[tex->type()] = tex; // todo: maybe use a vec to allow multiple of the same type
+	}
+
 	auto device = App::getHandle().getRenderBackend()->getDevice();
 	auto texLimit = App::getHandle().getRenderBackend()->getMaterialTextureLimit();
 
@@ -43,14 +47,14 @@ Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) : tex
 void Engine::Material::updateDescriptorSets()
 {
 	std::vector<VkWriteDescriptorSet> writes;
-	size_t texBinding = TEX_BINDING_OFFSET;
-	for (const auto& tex : textures) {
-		auto descriptor = tex->descriptor();
-		VkWriteDescriptorSet sampler = {
+
+	if (textures.find(TEX_TYPE_DIFFUSE) != textures.end()) {
+		auto descriptor = textures[TEX_TYPE_DIFFUSE]->descriptor();
+		VkWriteDescriptorSet write = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
 			pDescriptorSet,
-			texBinding,
+			TEX_BINDING_OFFSET + BINDING_DIFFUSE,
 			0,
 			1,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -58,12 +62,41 @@ void Engine::Material::updateDescriptorSets()
 			nullptr,
 			nullptr
 		};
-
-		writes.push_back(sampler);
-
-		++texBinding;
+		writes.push_back(write);
 	}
-	
+	if (textures.find(TEX_TYPE_SPECULAR) != textures.end()) {
+		auto descriptor = textures[TEX_TYPE_SPECULAR]->descriptor();
+		VkWriteDescriptorSet write = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			pDescriptorSet,
+			TEX_BINDING_OFFSET + BINDING_SPECULAR,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			&descriptor,
+			nullptr,
+			nullptr
+		};
+		writes.push_back(write);
+	}
+	if (textures.find(TEX_TYPE_NORMAL) != textures.end()) {
+		auto descriptor = textures[TEX_TYPE_NORMAL]->descriptor();
+		VkWriteDescriptorSet write = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			pDescriptorSet,
+			TEX_BINDING_OFFSET + BINDING_NORMAL,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			&descriptor,
+			nullptr,
+			nullptr
+		};
+		writes.push_back(write);
+	}
+
 	if (writes.size() > 0) {
 		if (writes.size() > App::getHandle().getRenderBackend()->getMaterialTextureLimit()) {
 			throw std::runtime_error("Trying to write more samplers than supported by the pipeline");

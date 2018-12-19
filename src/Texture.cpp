@@ -5,7 +5,7 @@
 
 using namespace Engine;
 
-Texture::Texture(std::string filePath) : filePath(filePath) {
+Texture::Texture(std::string filePath, size_t typeID) : filePath(filePath), typeID(typeID) {
 	auto& context = App::getHandle().getRenderBackend();
 	auto tex = Tools::FileReader::loadImage(filePath);
 	if (!tex.imageData) {
