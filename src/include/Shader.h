@@ -17,6 +17,8 @@ namespace Engine {
 		typedef struct UniformBufferObject {
 			glm::mat4 view;
 			glm::mat4 projection;
+			glm::vec3 cameraPos;
+			glm::vec3 lightPos;
 		} UBO;
 
 		typedef struct InstancedUniformBufferObject {

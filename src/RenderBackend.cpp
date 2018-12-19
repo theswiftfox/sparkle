@@ -51,7 +51,9 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 
 	setupVulkan();
 
-	pScene->loadFromFile("assets/nanosuit/nanosuit.obj");
+	// pScene->loadFromFile("assets/nanosuit/nanosuit.obj");
+	// pScene->loadFromFile("assets/moon/moon.obj");
+	pScene->loadFromFile("C:/Users/Patrick/Dev/sparkle/assets/boralus/boralus.fbx");
 	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 	recreateDrawCommandBuffers();
 }
@@ -144,7 +146,10 @@ void RenderBackend::updateUniforms() {
 	ubo.projection = pCamera->getProjection();
 
 	fubo.cameraPos = pCamera->getPosition();
-	fubo.lightPos = glm::vec3(30.0f, 100.0f, 80.0f);
+	fubo.lightPos = glm::vec3(300.0f, 1000.0f, 800.0f);
+
+	ubo.cameraPos = fubo.cameraPos;
+	ubo.lightPos = fubo.lightPos;
 
 	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
 	shaderProg->updateUniformBufferObject(ubo);

@@ -134,7 +134,7 @@ namespace Engine {
 		std::vector<vkExt::SharedMemory*> depthImageMemory;
 
 		VkDescriptorSetLayout pMaterialDescriptorSetLayout;
-		size_t materialTextureLimit = 2; // one diffuse and one specular for now
+		size_t materialTextureLimit = 3; // one diffuse, spec and normal
 
 		VkPhysicalDeviceFeatures requiredFeatures = { };
 

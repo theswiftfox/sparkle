@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <vector>
 #include <memory>
 
@@ -7,10 +8,14 @@
 
 #include <vulkan/vulkan.h>
 
-#define TEX_TYPE_DIFFUSE "diffuseTex"
-#define TEX_TYPE_SPECULAR "specularTex"
+#define TEX_TYPE_DIFFUSE 0
+#define TEX_TYPE_SPECULAR 1
+#define TEX_TYPE_NORMAL 2
 
 #define TEX_BINDING_OFFSET 0
+#define BINDING_DIFFUSE 0
+#define BINDING_SPECULAR 1
+#define BINDING_NORMAL 2
 
 namespace Engine {
 	class Material {
@@ -29,7 +34,7 @@ namespace Engine {
 		void updateDescriptorSets();
 
 	private:
-		std::vector<std::shared_ptr<Texture>> textures;
+		std::map<size_t, std::shared_ptr<Texture>> textures;
 
 		VkDescriptorPool pDescriptorPool;
 		VkDescriptorSetLayout pDescriptorSetLayout;

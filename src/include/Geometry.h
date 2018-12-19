@@ -25,6 +25,8 @@ namespace Engine {
 		typedef struct Vertex {
 			glm::vec3 position;
 			glm::vec3 normal;
+			glm::vec3 tangent;
+			glm::vec3 bitangent;
 			glm::vec2 texCoord;
 
 			static VkVertexInputBindingDescription getBindingDescription() {
@@ -36,8 +38,8 @@ namespace Engine {
 				return binding;
 			}
 
-			static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-				const std::array<VkVertexInputAttributeDescription, 3> attributes = { {
+			static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions() {
+				const std::array<VkVertexInputAttributeDescription, 5> attributes = { {
 					{
 						0,
 						0,
@@ -53,16 +55,25 @@ namespace Engine {
 					{
 						2,
 						0,
+						VK_FORMAT_R32G32B32_SFLOAT,
+						offsetof(Vertex, tangent)
+					},
+					{
+						3,
+						0,
+						VK_FORMAT_R32G32B32_SFLOAT,
+						offsetof(Vertex, bitangent)
+					},
+					{
+						4,
+						0,
 						VK_FORMAT_R32G32_SFLOAT,
 						offsetof(Vertex, texCoord)
-	}
+					}
 				} };
 				return attributes;
 			}
 
-			bool operator==(const Vertex& other) const {
-				return position == other.position && normal == other.normal && texCoord == other.texCoord;
-			}
 
 		} Vertex;
 
@@ -161,19 +172,11 @@ namespace Engine {
 
 			std::string rootDirectory;
 
-			std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName);
+			std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, size_t typeID);
 			void processAINode(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
 			std::shared_ptr<Node> createMesh(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
 		};
 	}
-}
-
-namespace std {
-	template<> struct hash<Engine::Geometry::Vertex> {
-		size_t operator()(Engine::Geometry::Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.position) ^ (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
 }
 
 
