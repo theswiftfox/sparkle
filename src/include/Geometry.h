@@ -51,7 +51,7 @@ namespace Engine {
 						offsetof(Vertex, normal)
 					},
 					{
-						3,
+						2,
 						0,
 						VK_FORMAT_R32G32_SFLOAT,
 						offsetof(Vertex, texCoord)
@@ -78,6 +78,7 @@ namespace Engine {
 
 			std::vector<std::shared_ptr<Node>> getDrawableSceneAsFlatVec();
 
+			void addChild(std::shared_ptr<Node> child) { children.push_back(child); }
 			void setChildren(std::vector<std::shared_ptr<Node>> nodes) {
 				children = nodes;
 			}
@@ -148,6 +149,7 @@ namespace Engine {
 				root = std::make_shared<Node>();
 			}
 
+			// TODO: buffer this and only update on geometry changes
 			const auto getRenderableScene() { return root->getDrawableSceneAsFlatVec(); }
 
 			void loadFromFile(const std::string& fileName);

@@ -19,6 +19,6 @@ int main(const int argc, char** argv) {
 		std::cin.ignore();
 		return EXIT_FAILURE;
 	}
-
+	std::cin.ignore();
 	return EXIT_SUCCESS;
 }

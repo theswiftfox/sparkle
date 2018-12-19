@@ -10,6 +10,8 @@
 #define TEX_TYPE_DIFFUSE "diffuseTex"
 #define TEX_TYPE_SPECULAR "specularTex"
 
+#define TEX_BINDING_OFFSET 0
+
 namespace Engine {
 	class Material {
 	public:

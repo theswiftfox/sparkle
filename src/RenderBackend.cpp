@@ -44,11 +44,16 @@ Engine::RenderBackend::RenderBackend(GLFWwindow * windowPtr, std::string name, s
 
 void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withValidation) {
 	enableValidationLayers = withValidation;
+	requiredFeatures.samplerAnisotropy = VK_TRUE;
 
 	// todo:
 	// * load settings
 
 	setupVulkan();
+
+	pScene->loadFromFile("assets/nanosuit/nanosuit.obj");
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+	recreateDrawCommandBuffers();
 }
 
 void RenderBackend::draw(double deltaT) {
@@ -139,9 +144,7 @@ void RenderBackend::updateUniforms() {
 
 	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
 	shaderProg->updateUniformBufferObject(ubo);
-	Shaders::TesselationControlSettings tese = {};
-	shaderProg->updateTesselationControlSettings(tese);
-	// update geometry
+	shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 }
 
 void RenderBackend::cleanupSwapChain() {
@@ -181,6 +184,8 @@ void RenderBackend::cleanup() {
 	}
 
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
+	
+	pScene.reset();
 
 	vkDestroyDevice(pVulkanDevice, nullptr);
 
@@ -383,7 +388,7 @@ void RenderBackend::createImageViews() {
 
 void RenderBackend::createMaterialDescriptorSetLayout() {
 	std::vector< VkDescriptorSetLayoutBinding> textureBindings;
-	size_t texBinding = 0;
+	size_t texBinding = TEX_BINDING_OFFSET;
 	for (size_t i = 0; i < materialTextureLimit; ++i) {
 		VkDescriptorSetLayoutBinding fragSamplerBinding = {
 			texBinding,
@@ -537,9 +542,10 @@ void RenderBackend::recordCommandBuffers() {
 			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
 			const auto meshes = pScene->getRenderableScene();
 
-			for (auto j = 0; j < meshes.size(); ++j) {
-				auto& node = meshes[j];
+			uint32_t j = 0;
+			for (auto& node : meshes) {
 				if (!node->drawable()) continue;
+
 				auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
 
 				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
@@ -554,6 +560,7 @@ void RenderBackend::recordCommandBuffers() {
 					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 				}
+				++j;
 			}
 		}
 		vkCmdEndRenderPass(commandBuffers[i]);
@@ -1125,7 +1132,7 @@ size_t RenderBackend::checkDeviceRequirements(VkPhysicalDevice device) const {
 	std::vector<VkExtensionProperties> deviceExtensions(extensionCount);
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, deviceExtensions.data());
 
-	if (requiredFeatures.tessellationShader > feats.tessellationShader) {
+	if (requiredFeatures.samplerAnisotropy > feats.samplerAnisotropy) {
 		return DEVICE_NOT_SUITABLE;
 	}
 

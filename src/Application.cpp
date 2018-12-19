@@ -19,7 +19,7 @@ void App::createWindow() {
 	// do not create OpenGL context
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	pWindow = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, APP_NAME, nullptr, nullptr);
+	pWindow = glfwCreateWindow(windowWidth, windowHeight, APP_NAME, nullptr, nullptr);
 	if (!pWindow) {
 		throw std::runtime_error("Window creation failed!");
 	}
@@ -54,6 +54,7 @@ void App::mainLoop() {
 				
 		glfwPollEvents();
 
+		pInputController->update(deltaT);
 		pCamera->update(deltaT);
 		pRenderer->updateUniforms();
 

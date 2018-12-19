@@ -67,7 +67,4 @@ Texture::Texture(std::string filePath) : filePath(filePath) {
 Texture::~Texture() {
 	auto& context = App::getHandle().getRenderBackend();
 	vkDestroySampler(context->getDevice(), texImageSampler, nullptr);
-	vkDestroyImageView(context->getDevice(), texImageView, nullptr);
-	texImage.destroy(true);
-	delete(texMemory);
 }

@@ -7,6 +7,7 @@
 #include <atomic>
 #include <vector>
 
+#include "InputController.h"
 #include "RenderBackend.h"
 #include "AppSettings.h"
 #include "Geometry.h"
@@ -43,9 +44,13 @@ namespace Engine {
 
 		std::shared_ptr<Settings> pSettings;
 		std::shared_ptr<Camera> pCamera;
+		std::shared_ptr<InputController> pInputController = nullptr;
 		std::shared_ptr<Geometry::Scene> pScene;
 
 		std::shared_ptr<Engine::RenderBackend> pRenderer;
+
+		int windowWidth = WINDOW_WIDTH;
+		int windowHeight = WINDOW_HEIGHT;
 
 		size_t lastFPS;
 
@@ -63,11 +68,19 @@ namespace Engine {
 			} else {
 				pSettings = loadFromDefault();
 			}
+			auto resolution = pSettings->getResolution();
+			windowWidth = resolution.first;
+			windowHeight = resolution.second;
+
 			pCamera = std::make_unique<Camera>(pSettings);
 			pScene = std::make_shared<Geometry::Scene>();
+
 			createWindow();
+
 			pRenderer = std::make_unique<Engine::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
 			pRenderer->initialize(pSettings, withValidation);
+
+			pInputController = std::make_shared<InputController>(pWindow, pCamera);
 		}
 
 		std::unique_ptr<Settings> loadFromDefault() const {
