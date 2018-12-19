@@ -120,13 +120,13 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 		for (size_t j = 0; j < aiMeshData->mNumVertices; ++j) {
 			auto aiVtx = aiMeshData->mVertices[j];
 			Vertex vtx;
-			vtx.position = glm::vec3(aiVtx.x, aiVtx.y, aiVtx.z);
+			vtx.position = glm::vec3(aiVtx.x, -aiVtx.y, aiVtx.z);
 			auto norm = aiMeshData->mNormals[j];
 			vtx.normal = glm::vec3(norm.x, norm.y, norm.z);
 
 			if (aiMeshData->mTextureCoords[0]) {
 				auto tc = aiMeshData->mTextureCoords[0][j];
-				vtx.texCoord = glm::vec2(tc.x, tc.y);
+				vtx.texCoord = glm::vec2(tc.x, 1.0f - tc.y);
 			}
 
 			data.vertices.push_back(vtx);

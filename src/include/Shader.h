@@ -23,13 +23,10 @@ namespace Engine {
 			glm::mat4* model;
 		} InstancedUBO;
 
-		typedef struct FragmentShaderSettings {
-			glm::vec4 lightDirection;
-			glm::vec4 lightColor;
-			float ambient;
-			float diffuse;
-			float shininess;
-		} FragmentShaderSettings;
+		typedef struct FragmentShaderUniforms {
+			glm::vec3 cameraPos;
+			glm::vec3 lightPos;
+		} FragmentShaderUniforms;
 
 		class ShaderProgram {
 		protected:
@@ -42,7 +39,7 @@ namespace Engine {
 
 			void updateUniformBufferObject(const UBO& ubo);
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
-			void updateFragmentShaderSettings(const FragmentShaderSettings& sets);
+			void updateFragmentShaderSettings(const FragmentShaderUniforms& sets);
 
 			auto getDynamicAlignment() const { return dynamicAlignment; }
 

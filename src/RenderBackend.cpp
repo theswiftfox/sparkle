@@ -138,12 +138,17 @@ void RenderBackend::updateUniforms() {
 	glfwGetWindowSize(pWindow, &width, &height);
 
 	Shaders::UBO ubo = {};
+	Shaders::FragmentShaderUniforms fubo = {};
 
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
 
+	fubo.cameraPos = pCamera->getPosition();
+	fubo.lightPos = glm::vec3(30.0f, 100.0f, 80.0f);
+
 	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
 	shaderProg->updateUniformBufferObject(ubo);
+	shaderProg->updateFragmentShaderSettings(fubo);
 	shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 }
 
