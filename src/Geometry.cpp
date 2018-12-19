@@ -59,6 +59,12 @@ std::vector<std::shared_ptr<Node>> Engine::Geometry::Node::getDrawableSceneAsFla
 
 void Engine::Geometry::Scene::cleanup() {
 	root.reset();
+
+	for (auto& tex : textureCache) {
+		tex.reset();
+	}
+
+	textureCache.clear();
 }
 
 std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextures(aiMaterial * mat, aiTextureType type, std::string typeName)
@@ -71,7 +77,7 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 
 		bool isLoaded = false;
 		for (const auto& tex : textureCache) {
-			if (std::strcmp(tex->path().c_str(), str.C_Str())) {
+			if (std::strcmp(tex->path().c_str(), str.C_Str()) == 0) {
 				textures.push_back(tex);
 				isLoaded = true;
 				break;
@@ -93,6 +99,7 @@ void Engine::Geometry::Scene::processAINode(aiNode * node, const aiScene * scene
 	auto parent = parentNode;
 	if (node->mNumMeshes > 0) {
 		auto mesh = createMesh(node, scene, parent);
+		parent->addChild(mesh);
 		parent = mesh;
 	}
 
@@ -174,7 +181,6 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 }
 
 void Engine::Geometry::Scene::loadFromFile(const std::string& fileName) {
-// todo: assimp
 	Assimp::Importer importer;
 
 	auto aiScene = importer.ReadFile(fileName,
@@ -189,7 +195,14 @@ void Engine::Geometry::Scene::loadFromFile(const std::string& fileName) {
 		throw std::runtime_error("Unable to load scene from " + fileName);
 	}
 
-	auto root = std::make_shared<Node>();
+	auto dirOffs = std::find(fileName.rbegin(), fileName.rend(), '/');
+	if (dirOffs != fileName.rend()) {
+		rootDirectory = fileName.substr(0, (fileName.rend() - dirOffs));
+
+	}
+	else {
+		rootDirectory = "assets";
+	}
 
 	processAINode(aiScene->mRootNode, aiScene, root);
 }

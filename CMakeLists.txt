@@ -54,6 +54,7 @@ set(SRC
 	src/Geometry.cpp
 	src/main.cpp
 	src/GraphicsPipeline.cpp
+	src/InputController.cpp
 	src/Material.cpp
 	src/RenderBackend.cpp
 	src/Shader.cpp
@@ -73,6 +74,7 @@ set(HDR
 	src/include/FileReader.h
 	src/include/Geometry.h
 	src/include/GraphicsPipeline.h
+	src/include/InputController.h
 	src/include/Material.h
 	src/include/RenderBackend.h
 	src/include/Shader.h

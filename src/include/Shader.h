@@ -23,10 +23,6 @@ namespace Engine {
 			glm::mat4* model;
 		} InstancedUBO;
 
-		typedef struct TesselationControlSettings {
-
-		} TesselationControlSettings;
-
 		typedef struct FragmentShaderSettings {
 			glm::vec4 lightDirection;
 			glm::vec4 lightColor;
@@ -46,7 +42,6 @@ namespace Engine {
 
 			void updateUniformBufferObject(const UBO& ubo);
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
-			void updateTesselationControlSettings(const TesselationControlSettings& sets);
 			void updateFragmentShaderSettings(const FragmentShaderSettings& sets);
 
 			auto getDynamicAlignment() const { return dynamicAlignment; }
@@ -57,10 +52,12 @@ namespace Engine {
 				return (tessControlShader != nullptr && tessEvalShader != nullptr);
 			}
 
-			std::array<VkDescriptorBufferInfo, 3> getDescriptorInfos() const;
+			std::array<VkDescriptorBufferInfo, 2> getDescriptorInfos() const;
 
 			vkExt::Buffer pUniformBuffer;
 			vkExt::Buffer pDynamicBuffer;
+
+			bool dynamicBufferDirty = true;
 
 		private:
 			VkShaderModule vertexShader = nullptr;
@@ -70,9 +67,7 @@ namespace Engine {
 
 			vkExt::SharedMemory* pUniformBufferMemory;
 			vkExt::SharedMemory* pDynamicBufferMemory;
-			vkExt::SharedMemory* pDynamicVertexTypeMemory;
 
-			size_t teseSettingsOffset{};
 			size_t fragSettingsOffset{};
 
 			size_t objectCount;

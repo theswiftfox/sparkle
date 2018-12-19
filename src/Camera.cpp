@@ -1,9 +1,11 @@
 #include "Camera.h"
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
 using namespace Engine;
 
-Camera::Camera(std::shared_ptr<Settings> settings) {
+Camera::Camera(std::shared_ptr<Settings> settings) : cameraPos(0.0f){
 	auto [width, height] = settings->getResolution();
 	nearZ = NEAR_Z;
 	farZ = settings->getRenderDistance();
@@ -47,6 +49,10 @@ glm::vec3 Camera::getRightWorld() {
 	return glm::vec3(viewMat[0][0], viewMat[1][0], viewMat[2][0]);
 }
 
+glm::vec3 Camera::getFrontWorld() {
+	return glm::vec3(viewMat[0][2], viewMat[1][2], viewMat[2][2]);
+}
+
 glm::vec3 Camera::getUpWorld() {
 	return glm::vec3(viewMat[0][1], viewMat[1][1], viewMat[2][1]);
 }
@@ -70,28 +76,20 @@ void Camera::update(float deltaT) {
 
 
 void Camera::moveForward(float deltaT) {
-	glm::vec4 moveVec(0.f, 0.f, playerSpeed * deltaT, 1);
-	moveVec = moveVec * hRotation;
-	cameraPos = cameraPos + glm::vec3(moveVec);
+	cameraPos = cameraPos + -playerSpeed * deltaT * getFrontWorld();
 }
 
 
 void Camera::moveBackward(float deltaT) {
-	glm::vec4 moveVec(0.f, 0.f, -PLAYER_DEFAULT_SPEED * PLAYER_REVERSING_FACTOR * deltaT, 1);
-	moveVec = moveVec * hRotation;
-	cameraPos = cameraPos + glm::vec3(moveVec);
+	cameraPos = cameraPos + playerSpeed * deltaT * getFrontWorld();
 }
 
 void Camera::moveRight(float deltaT) {
-	glm::vec4 moveVec(-playerSpeed * PLAYER_SIDESTEP_FACTOR * deltaT, 0.f, 0.f, 1);
-	moveVec = moveVec * hRotation;
-	cameraPos = cameraPos + glm::vec3(moveVec);
+	cameraPos = cameraPos + playerSpeed * deltaT * getRightWorld();
 }
 
 void Camera::moveLeft(float deltaT) {
-	glm::vec4 moveVec(playerSpeed * PLAYER_SIDESTEP_FACTOR * deltaT, 0.f, 0.f, 1);
-	moveVec = moveVec * hRotation;
-	cameraPos = cameraPos + glm::vec3(moveVec);
+	cameraPos = cameraPos + -playerSpeed * deltaT * getRightWorld();
 }
 
 void Camera::setAngle(float x, float y) {

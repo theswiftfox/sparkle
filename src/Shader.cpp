@@ -13,7 +13,6 @@ using namespace Engine::Shaders;
 ShaderProgram::ShaderProgram(const std::string& vtxShaderFile, const std::string& tescShaderFile, const std::string& teseShaderFile, const std::string& fragShaderFile, size_t objectInstances) {
 	pUniformBufferMemory = new vkExt::SharedMemory();
 	pDynamicBufferMemory = new vkExt::SharedMemory();
-	pDynamicVertexTypeMemory = new vkExt::SharedMemory();
 	objectCount = objectInstances;
 	if (!vtxShaderFile.empty()) {
 		const auto vtxShaderCode = Tools::FileReader::readFile(vtxShaderFile);
@@ -64,9 +63,6 @@ void ShaderProgram::cleanup() const {
 	if (pDynamicBufferMemory) {
 		delete(pDynamicBufferMemory);
 	}
-	if (pDynamicVertexTypeMemory) {
-		delete(pDynamicVertexTypeMemory);
-	}
 }
 
 
@@ -74,12 +70,6 @@ void ShaderProgram::updateUniformBufferObject(const UBO& ubo)
 {
 	pUniformBuffer.map();
 	pUniformBuffer.copyTo(&ubo, sizeof(ubo));
-	pUniformBuffer.unmap();
-}
-
-void ShaderProgram::updateTesselationControlSettings(const TesselationControlSettings& sets) {
-	pUniformBuffer.map(teseSettingsOffset);
-	pUniformBuffer.copyTo(&sets, sizeof(sets));
 	pUniformBuffer.unmap();
 }
 
@@ -148,19 +138,12 @@ void ShaderProgram::createUniformBuffer()
 
 	const auto uboSize = sizeof(UBO);
 	if (alignment > 0) {
-		teseSettingsOffset = (uboSize + alignment - 1) & ~(alignment - 1);
+		fragSettingsOffset = (uboSize + alignment - 1) & ~(alignment - 1);
 	}
 	else {
-		teseSettingsOffset = uboSize;
+		fragSettingsOffset = uboSize;
 	}
 
-	const auto teseSize = sizeof(TesselationControlSettings);
-	if (alignment > 0) {
-		fragSettingsOffset = (teseSettingsOffset + teseSize + alignment - 1) & ~(alignment - 1);
-	}
-	else {
-		fragSettingsOffset = teseSettingsOffset + teseSize;
-	}
 
 	const auto fragSize = sizeof(FragmentShaderSettings);
 
@@ -195,7 +178,8 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	
 	pDynamicBuffer.map();
 
-	getDescriptorInfos();
+	dynamicBufferDirty = true;
+	// getDescriptorInfos();
 }
 
 void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Engine::Geometry::Node>>& meshes) {
@@ -211,18 +195,12 @@ void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shar
 }
 
 
-std::array<VkDescriptorBufferInfo, 3> ShaderProgram::getDescriptorInfos() const
+std::array<VkDescriptorBufferInfo, 2> ShaderProgram::getDescriptorInfos() const
 {
 	const VkDescriptorBufferInfo uboModel = {
 		pUniformBuffer.buffer,
 		0,
 		sizeof(UBO)
-	};
-
-	const VkDescriptorBufferInfo teseSettingsModel = {
-		pUniformBuffer.buffer,
-		teseSettingsOffset,
-		sizeof(TesselationControlSettings)
 	};
 
 	const VkDescriptorBufferInfo fragSettingsModel = {
@@ -231,7 +209,7 @@ std::array<VkDescriptorBufferInfo, 3> ShaderProgram::getDescriptorInfos() const
 		sizeof(FragmentShaderSettings)
 	};
 
-	const std::array<VkDescriptorBufferInfo, 3> descSets = { uboModel, teseSettingsModel, fragSettingsModel };
+	const std::array<VkDescriptorBufferInfo, 2> descSets = { uboModel, fragSettingsModel };
 	return descSets;
 }
 

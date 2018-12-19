@@ -21,7 +21,13 @@ namespace Engine
 		auto getRenderPassPtr() const { return pRenderPass; }
 		auto getVkGraphicsPipelinePtr() const { return pGraphicsPipeline; }
 		auto getPipelineLayoutPtr() const { return pPipelineLayout; }
-		auto getDescriptorSetPtr() const { return pDescriptorSet; }
+		auto getDescriptorSetPtr() { 
+			if (shader->dynamicBufferDirty) {
+				updateDescriptorSets();
+				shader->dynamicBufferDirty = false;
+			}
+			return pDescriptorSet;
+		}
 
 		auto getShaderProgramPtr() const { return shader; }
 

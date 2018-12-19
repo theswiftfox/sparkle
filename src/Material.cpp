@@ -4,17 +4,18 @@
 
 Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) : textures(textures) {
 	auto device = App::getHandle().getRenderBackend()->getDevice();
+	auto texLimit = App::getHandle().getRenderBackend()->getMaterialTextureLimit();
 
 	VkDescriptorPoolSize size = {
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		static_cast<uint32_t>(textures.size())
+		texLimit
 	};
 
 	VkDescriptorPoolCreateInfo info = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		nullptr,
 		0,
-		1,
+		texLimit,
 		1,
 		&size
 	};
@@ -34,9 +35,7 @@ Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) : tex
 		layouts
 	};
 
-	if (vkAllocateDescriptorSets(device, &allocInfo, &pDescriptorSet) != VK_SUCCESS) {
-		throw std::runtime_error("DescriptorSet allocation failed!");
-	}
+	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
 
 	updateDescriptorSets();
 }
@@ -44,7 +43,7 @@ Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) : tex
 void Engine::Material::updateDescriptorSets()
 {
 	std::vector<VkWriteDescriptorSet> writes;
-	size_t texBinding = 0;
+	size_t texBinding = TEX_BINDING_OFFSET;
 	for (const auto& tex : textures) {
 		auto descriptor = tex->descriptor();
 		VkWriteDescriptorSet sampler = {

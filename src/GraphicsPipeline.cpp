@@ -158,17 +158,6 @@ void GraphicsPipeline::initPipeline()
 	};
 	bindings.push_back(modelBinding);
 
-	if (shader->tesselationEnabled()) {
-		const VkDescriptorSetLayoutBinding teseSettingsBinding = {
-			4,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			1,
-			VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
-			nullptr
-		};
-		bindings.push_back(teseSettingsBinding);
-	}
-
 	const VkDescriptorSetLayoutBinding fragSettingsBinding = {
 		2,
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -177,15 +166,6 @@ void GraphicsPipeline::initPipeline()
 		nullptr
 	};
 	bindings.push_back(fragSettingsBinding);
-
-	const VkDescriptorSetLayoutBinding colorTypeBinding = {
-		3,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-		1,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		nullptr
-	};
-	bindings.push_back(colorTypeBinding);
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -295,7 +275,7 @@ void GraphicsPipeline::initPipeline()
 
 void GraphicsPipeline::updateDescriptorSets() const
 {
-	auto[uboModel, tessModel, fragModel] = shader->getDescriptorInfos();
+	auto[uboModel, fragModel] = shader->getDescriptorInfos();
 
 	std::vector<VkWriteDescriptorSet> write;
 
@@ -327,22 +307,6 @@ void GraphicsPipeline::updateDescriptorSets() const
 			nullptr
 		};
 		write.push_back(dyn);
-	}
-
-	if (shader->tesselationEnabled()) {
-		const VkWriteDescriptorSet tese = {
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			nullptr,
-			pDescriptorSet,
-			4,
-			0,
-			1,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			nullptr,
-			&tessModel,
-			nullptr
-		};
-		write.push_back(tese);
 	}
 
 	const VkWriteDescriptorSet frag = {
