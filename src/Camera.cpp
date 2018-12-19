@@ -94,7 +94,7 @@ void Camera::moveLeft(float deltaT) {
 
 void Camera::setAngle(float x, float y) {
 	hAngle += x * MOUSE_SPEED;
-	vAngle += y * MOUSE_SPEED;
+	vAngle -= y * MOUSE_SPEED;
 	if (vAngle <= -1.5) vAngle = -1.5;
 	if (vAngle >= 1.5) vAngle = 1.5;
 }

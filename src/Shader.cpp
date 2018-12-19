@@ -73,7 +73,7 @@ void ShaderProgram::updateUniformBufferObject(const UBO& ubo)
 	pUniformBuffer.unmap();
 }
 
-void ShaderProgram::updateFragmentShaderSettings(const FragmentShaderSettings& sets) {
+void ShaderProgram::updateFragmentShaderSettings(const FragmentShaderUniforms& sets) {
 	pUniformBuffer.map(fragSettingsOffset);
 	pUniformBuffer.copyTo(&sets, sizeof(sets));
 	pUniformBuffer.unmap();
@@ -145,7 +145,7 @@ void ShaderProgram::createUniformBuffer()
 	}
 
 
-	const auto fragSize = sizeof(FragmentShaderSettings);
+	const auto fragSize = sizeof(FragmentShaderUniforms);
 
 	const auto bufferSize = fragSettingsOffset + fragSize;
 	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pUniformBuffer, pUniformBufferMemory);
@@ -206,7 +206,7 @@ std::array<VkDescriptorBufferInfo, 2> ShaderProgram::getDescriptorInfos() const
 	const VkDescriptorBufferInfo fragSettingsModel = {
 		pUniformBuffer.buffer,
 		fragSettingsOffset,
-		sizeof(FragmentShaderSettings)
+		sizeof(FragmentShaderUniforms)
 	};
 
 	const std::array<VkDescriptorBufferInfo, 2> descSets = { uboModel, fragSettingsModel };
