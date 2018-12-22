@@ -8,7 +8,7 @@ Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) {
 	}
 
 	auto device = App::getHandle().getRenderBackend()->getDevice();
-	auto texLimit = App::getHandle().getRenderBackend()->getMaterialTextureLimit();
+	auto texLimit = static_cast<uint32_t>(App::getHandle().getRenderBackend()->getMaterialTextureLimit());
 
 	VkDescriptorPoolSize size = {
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

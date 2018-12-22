@@ -42,10 +42,10 @@ GUI::~GUI() {
 }
 
 void GUI::init(float width, float height, VkRenderPass renderPass) {
-	windowWidth = width;
-	windowHeight = height;
+	windowWidth = (float)width;
+	windowHeight = (float)height;
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.DisplaySize = ImVec2((float)width, (float)height);
+	io.DisplaySize = ImVec2(windowWidth, windowHeight);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 	ImGui::StyleColorsDark();
 	this->renderPass = renderPass;
@@ -81,7 +81,7 @@ void GUI::initResources() {
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCreateInfo = {};
 	descSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descSetLayoutCreateInfo.bindingCount = bindings.size();
+	descSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 	descSetLayoutCreateInfo.pBindings = bindings.data();
 
 	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(device, &descSetLayoutCreateInfo, nullptr, &descriptorSetLayout), "Error creating descriptor set for UI");
@@ -227,7 +227,7 @@ void GUI::updateBuffers(const std::vector<VkFence>& fences) {
 	bool vtxResize = vtxCount < drawData->TotalVtxCount;
 	if ((vertexBuffer.buffer == VK_NULL_HANDLE) || vtxResize) {
 		if (vtxResize && vertexBuffer.buffer != VK_NULL_HANDLE) {
-			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, 5e+9); // wait for 5s
+			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, uint64_t(5e+9)); // wait for 5s
 			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
 		}
 		vertexBuffer.destroy(true);
