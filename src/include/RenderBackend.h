@@ -12,6 +12,8 @@
 #include <glfw/glfw3.h>
 #include <VulkanExtension.h>
 
+#include <future>
+
 #include "UI.h"
 #include "Camera.h"
 #include "Geometry.h"
@@ -56,6 +58,8 @@ namespace Engine {
 
 		Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
+		std::shared_ptr<GUI> getUiHandle() const { return pUi; }
+		void updateDrawCommand();
 		
 		VkDevice getDevice() const { return pVulkanDevice; }
 		VkPhysicalDevice getPhysicalDevice() const { return pPhysicalDevice; }
@@ -89,6 +93,8 @@ namespace Engine {
 		std::shared_ptr<Camera> pCamera = nullptr;
 		std::shared_ptr<Geometry::Scene> pScene = nullptr;
 		std::shared_ptr<GUI> pUi = nullptr;
+
+		std::future<void> levelLoadFuture;
 
 		GLFWwindow* pWindow;
 		int viewportWidth, viewportHeight;

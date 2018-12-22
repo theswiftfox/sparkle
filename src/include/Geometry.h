@@ -12,11 +12,15 @@
 #include "Material.h"
 
 #include <assimp/scene.h>
+#include <assimp/Importer.hpp>
 
 #include <array>
 #include <memory>
 #include <vector>
 #include <string>
+#include <future>
+#include <atomic>
+#include <mutex>
 
 namespace Engine {
 	class App;
@@ -165,12 +169,22 @@ namespace Engine {
 			const auto getRenderableScene() { return root->getDrawableSceneAsFlatVec(); }
 
 			void loadFromFile(const std::string& fileName);
+			void processAssimp();
+			bool isLoaded() const { return loaded; }
 
 			void cleanup();
 		private:
+			std::atomic_bool loaded = false;
+
+			std::future<void> levelLoadFuture;
+
 			std::shared_ptr<Node> root;
 			std::vector<std::shared_ptr<Texture>> textureCache;
 
+			std::mutex sceneMutex;
+			Assimp::Importer importer;
+			const aiScene* scenePtr;
+			std::mutex dirMutex;
 			std::string rootDirectory;
 
 			std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, size_t typeID);

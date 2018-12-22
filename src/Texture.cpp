@@ -10,7 +10,7 @@ Texture::Texture(std::string filePath, size_t typeID) : filePath(filePath), type
 	if (!tex.imageData) {
 		throw std::runtime_error("Unable to load texture from: " + filePath);
 	}
-	initFromData(tex.imageData, width, height, 4/*channels*/);
+	initFromData(tex.imageData, tex.width, tex.height, 4/*channels*/);
 
 	tex.free();
 }
