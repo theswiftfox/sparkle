@@ -1,5 +1,9 @@
 #include "InputController.h"
 
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>  
+#include <imgui/imgui.h>
+
 void InputController::glfwCallback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
@@ -9,6 +13,9 @@ void InputController::glfwCallback(GLFWwindow* window, int button, int action, i
 		else if (action == GLFW_RELEASE) {
 			isTurning = false;
 		}
+	}
+	if (action == GLFW_PRESS && button >= 0 && button < mouseWasPressed.size()) {
+		mouseWasPressed[button] = true;
 	}
 }
 
@@ -37,9 +44,43 @@ void InputController::update(float deltaT) {
 	if (glfwGetKey(window, GLFW_KEY_D)) {
 		camera->moveRight(deltaT);
 	}
+
+	// imgui
+	auto& io = ImGui::GetIO();
+	const ImVec2 mouse_pos_backup = io.MousePos;
+	io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+	const bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
+	if (focused)
+	{
+		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++)
+		{
+			// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
+			io.MouseDown[i] = mouseWasPressed[i] || glfwGetMouseButton(window, i) != 0;
+			mouseWasPressed[i] = false;
+		}
+
+		if (io.WantSetMousePos)
+		{
+			glfwSetCursorPos(window, (double)mouse_pos_backup.x, (double)mouse_pos_backup.y);
+		}
+		else
+		{
+			double mouse_x, mouse_y;
+			glfwGetCursorPos(window, &mouse_x, &mouse_y);
+			io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);
+		}
+	}
 }
 
 void InputController::init() {
+	auto& io = ImGui::GetIO();
+	io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
+	io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
+	io.BackendPlatformName = "inputController";
+
+	io.ImeWindowHandle = (void*)glfwGetWin32Window(window);
+
+	mouseWasPressed.resize(IM_ARRAYSIZE(io.MouseDown));
 	glfwSetWindowUserPointer(window, this);
 	auto mouseClicked = [](GLFWwindow* w, int b, int a, int m) {
 		static_cast<InputController*>(glfwGetWindowUserPointer(w))->glfwCallback(w, b, a, m);

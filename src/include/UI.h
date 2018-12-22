@@ -3,24 +3,35 @@
 
 #include <imgui/imgui.h>
 
-#include <Application.h>
+#include <memory>
+#include <vector>
 #include <VulkanExtension.h>
 
-namespace Engine {
-	class GUI {
-	private:
-		std::shared_ptr<Engine::RenderBackend> renderBackend;
+#include <glm/glm.hpp>
 
-		VkSampler sampler;
+#include "Texture.h"
+
+namespace Engine {
+	class RenderBackend;
+
+	class GUI {
+	public:
+		struct FrameData {
+			size_t fps;
+		};
+
+	private:
+		std::shared_ptr<RenderBackend> renderBackend;
+
+		std::shared_ptr<Texture> fontTex;
 		vkExt::Buffer vertexBuffer;
+		vkExt::SharedMemory* vertexMemory = nullptr;
 		vkExt::Buffer indexBuffer;
+		vkExt::SharedMemory* indexMemory = nullptr;
 		int32_t vtxCount = 0;
 		int32_t idxCount = 0;
 
-		vkExt::SharedMemory* fontMemory = nullptr;
-		vkExt::Image fontImage;
-		VkImageView fontImageView = VK_NULL_HANDLE;
-
+		VkRenderPass renderPass;
 		VkPipelineCache pipelineCache;
 		VkPipelineLayout pipelineLayout;
 		VkPipeline pipeline;
@@ -29,23 +40,28 @@ namespace Engine {
 		VkDescriptorSetLayout descriptorSetLayout;
 		VkDescriptorSet descriptorSet;
 
-		VkDevice device = VK_NULL_HANDLE;		
+		VkDevice device = VK_NULL_HANDLE;
+
+		int windowWidth, windowHeight;
+
+		static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
+		void initResources();
+
 	public:
 		struct PushConstants {
 			glm::vec2 scale;
 			glm::vec2 translate;
 		} pushConstants;
 
-		GUI() {
-			renderBackend = App::getHandle().getRenderBackend();
-			device = renderBackend->getDevice();
-			ImGui::CreateContext();
-		}
+		GUI();
 
 		~GUI();
 
-		void init(float width, float height);
-		void initResources();
+		void updateBuffers(const std::vector<VkFence>& fences);
+		void updateFrame(const FrameData frameData);
+
+		void init(float width, float height, VkRenderPass renderPass);
+		void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 	};
 }
 

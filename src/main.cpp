@@ -5,14 +5,13 @@
 
 int main(const int argc, char** argv) {
 	auto& app = Engine::App::getHandle();
-	const auto validation = false;
 
 	try {
 		std::string config = "assets/settings.ini";
 		if (argc > 1) {
 			config = argv[1];
 		}
-		app.run(config, validation);
+		app.run(config);
 	}
 	catch (const std::runtime_error& e) {
 		std::cerr << e.what() << std::endl << "Press any key to exit..." << std::endl;

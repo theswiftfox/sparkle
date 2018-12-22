@@ -12,6 +12,7 @@
 #include <glfw/glfw3.h>
 #include <VulkanExtension.h>
 
+#include "UI.h"
 #include "Camera.h"
 #include "Geometry.h"
 #include "AppSettings.h"
@@ -49,6 +50,7 @@ namespace Engine {
 		void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
 		void draw(double deltaT);
 		void updateUniforms();
+		void updateUiData(GUI::FrameData uiData);
 
 		void cleanup();
 
@@ -84,10 +86,12 @@ namespace Engine {
 	private:
 		std::string appName;
 
-		std::shared_ptr<Camera> pCamera;
-		std::shared_ptr<Geometry::Scene> pScene;
+		std::shared_ptr<Camera> pCamera = nullptr;
+		std::shared_ptr<Geometry::Scene> pScene = nullptr;
+		std::shared_ptr<GUI> pUi = nullptr;
 
 		GLFWwindow* pWindow;
+		int viewportWidth, viewportHeight;
 
 		VkDebugReportCallbackEXT pCallback;
 		VkSurfaceKHR pSurface;
@@ -100,6 +104,7 @@ namespace Engine {
 		VkDevice pVulkanDevice;
 		VkSwapchainKHR pSwapChain;
 		VkFormat swapChainImageFormat;
+		VkFormat depthFormat;
 		VkExtent2D swapChainExtent;
 		VkCommandPool pCommandPool;
 		std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
@@ -120,11 +125,13 @@ namespace Engine {
 		// Synchronization objects
 		std::vector<VkSemaphore> semImageAvailable;
 		std::vector<VkSemaphore> semRenderFinished;
+		std::vector<VkSemaphore> semUiFinished;
 		std::vector<VkFence> inFlightFences;
 
 		size_t frameCounter = 0;
 
 		std::vector<VkCommandBuffer> commandBuffers;
+		std::vector<VkCommandBuffer> uiCommandBuffers;
 
 		std::vector<VkImage> swapChainImages;
 		std::vector<VkImageView> swapChainImageViews;
@@ -176,15 +183,17 @@ namespace Engine {
 		void createPipeline();
 		void createDrawBuffer();
 		void createCommandBuffers();
-		void recordCommandBuffers();
+		void recordDrawCmdBuffers();
+		void recordUiCmdBuffers(size_t imageIndex);
 		void createSyncObjects();
 		void setupGui();
 		void increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSize newIndexLimit);
 		void cleanupSwapChain();
 		void recreateSwapChain();
 		void destroyCommandBuffers();
-		void recreateDrawCommandBuffers();
-		void recreateAllCommandBuffers();
+		void recreateDrawCmdBuffers();
+		void recreateUiCmdBuffers(size_t imageIndex);
+		void recreateAllCmdBuffers();
 
 		Vulkan::RequiredQueueFamilyIndices getQueueFamilies(VkPhysicalDevice device) const;
 		Vulkan::SwapChainSupportInfo getSwapChainSupportInfo(VkPhysicalDevice device) const;

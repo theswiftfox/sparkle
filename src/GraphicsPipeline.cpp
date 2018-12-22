@@ -15,22 +15,22 @@ void GraphicsPipeline::initPipeline()
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = renderer->getImageFormat();
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	const auto depthFormat = renderer->getDepthFormat();
 	VkAttachmentDescription depthAttachment = {};
 	depthAttachment.format = depthFormat;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference colorAttRef;
@@ -72,7 +72,7 @@ void GraphicsPipeline::initPipeline()
 	VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
 
 	// create shader modules
-	shader = std::make_unique<Shaders::ShaderProgram>("shaders/shader.vert.spv", "", "", "shaders/shader.frag.spv", 0);
+	shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages = shader->getShaderStages();
 

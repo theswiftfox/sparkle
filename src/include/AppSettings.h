@@ -16,6 +16,8 @@ namespace Engine {
 		bool getFullscreen() const;
 		int getRefreshRate() const;
 		float getBrightness() const;
+		std::string getLevelPath() const;
+		bool withValidationLayer() const;
 
 		void updateResolution(int w, int h);
 		void updateFullscreen(bool fs);
@@ -29,6 +31,8 @@ namespace Engine {
 		int refreshRate = 60;
 		float brightness = 1.0f;
 		bool isFullscreen = false;
+		bool validation = false;
+		std::string levelPath;
 
 		std::string filePath;
 	};

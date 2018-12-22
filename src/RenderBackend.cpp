@@ -29,9 +29,9 @@ void RenderBackend::setupVulkan() {
 	createDrawBuffer();
 	createMaterialDescriptorSetLayout();
 	createPipeline();
+	setupGui();
 	createCommandBuffers();
 	createSyncObjects();
-	setupGui();
 }
 
 Engine::RenderBackend::RenderBackend(GLFWwindow * windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene)
@@ -48,18 +48,20 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 
 	// todo:
 	// * load settings
+	auto[width, height] = settings->getResolution();
+	viewportWidth = width;
+	viewportHeight = height;
 
 	setupVulkan();
 
-	// pScene->loadFromFile("assets/nanosuit/nanosuit.obj");
-	// pScene->loadFromFile("assets/moon/moon.obj");
-	pScene->loadFromFile("C:/Users/Patrick/Dev/sparkle/assets/boralus/boralus.fbx");
+	pScene->loadFromFile(settings->getLevelPath());
+
 	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
-	recreateDrawCommandBuffers();
+	recreateDrawCmdBuffers();
 }
 
 void RenderBackend::draw(double deltaT) {
-	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, 5e+9);
 	vkResetFences(pVulkanDevice, 1, &inFlightFences[frameCounter]);
 
 	uint32_t imageIndex;
@@ -102,15 +104,38 @@ void RenderBackend::draw(double deltaT) {
 		renderInfo.signalSemaphoreCount = 1;
 		renderInfo.pSignalSemaphores = signalSemaphores;
 
-		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, inFlightFences[frameCounter]), "Error occured during rendering pass");
+		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr), "Error occured during rendering pass");
 	}
 
-	auto renderQueued = false;
+	{
+		VkSubmitInfo uiInfo{};
+		uiInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	// final pass draws GUI elements on top of the current framebuffer image
-	// drawGui(imageIndex, renderQueued);
+		VkSemaphore waitSemaphores[] = { semRenderFinished[frameCounter] };
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		uiInfo.waitSemaphoreCount = 1;
+		uiInfo.pWaitSemaphores = waitSemaphores;
+		uiInfo.pWaitDstStageMask = waitStages;
 
-	VkSemaphore presetReadySemaphore[] = { semRenderFinished[frameCounter] };
+		pUi->updateBuffers(inFlightFences);
+		if (uiCommandBuffers[imageIndex] != VK_NULL_HANDLE) {
+			vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &uiCommandBuffers[imageIndex]);
+		}
+		uiCommandBuffers[imageIndex] = beginOneTimeCommand();
+		pUi->drawFrame(uiCommandBuffers[imageIndex], pGraphicsPipeline->getFramebufferPtrs()[imageIndex]);
+		transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, uiCommandBuffers[imageIndex]);
+		VK_THROW_ON_ERROR(vkEndCommandBuffer(uiCommandBuffers[imageIndex]), "Error ending UI command buffer");
+
+		uiInfo.commandBufferCount = 1;
+		uiInfo.pCommandBuffers = &uiCommandBuffers[imageIndex];
+
+		VkSemaphore signalSemaphores[] = { semUiFinished[frameCounter] };
+		uiInfo.signalSemaphoreCount = 1;
+		uiInfo.pSignalSemaphores = signalSemaphores;
+		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &uiInfo, inFlightFences[frameCounter]), "Error occured during ui render pass");
+	}
+
+	VkSemaphore presetReadySemaphore[] = { semUiFinished[frameCounter] };
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
@@ -131,9 +156,12 @@ void RenderBackend::draw(double deltaT) {
 	}
 
 	frameCounter = (frameCounter + 1) % MAX_FRAMES_IN_FLIGHT;
-	vkDeviceWaitIdle(pVulkanDevice);
+	// vkDeviceWaitIdle(pVulkanDevice);
 }
 
+void RenderBackend::updateUiData(GUI::FrameData uiData) {
+	pUi->updateFrame(uiData);
+}
 
 void RenderBackend::updateUniforms() {
 	int width, height;
@@ -193,6 +221,8 @@ void RenderBackend::cleanup() {
 		vkDestroyImage(pVulkanDevice, image, nullptr);
 	}
 
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()), uiCommandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
 	pScene.reset();
@@ -456,7 +486,7 @@ void RenderBackend::createCommandPool()
 }
 
 void RenderBackend::createDepthResources() {
-	auto depthFormat = getDepthFormat();
+	depthFormat = getDepthFormat();
 
 	const auto size = swapChainImages.size();
 	const auto width = swapChainExtent.width;
@@ -478,21 +508,30 @@ void RenderBackend::destroyCommandBuffers() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 }
 
-void RenderBackend::recreateDrawCommandBuffers() {
-	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+void RenderBackend::recreateDrawCmdBuffers() {
+	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, 5e+9);
 	vkDeviceWaitIdle(pVulkanDevice);
 	for (auto& cmdBuff : commandBuffers) {
 		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 	}
-	recordCommandBuffers();
+	recordDrawCmdBuffers();
 }
 
-void RenderBackend::recreateAllCommandBuffers() {
-	recreateDrawCommandBuffers();
+void RenderBackend::recreateUiCmdBuffers(size_t imageIndex) {
+	//vkDeviceWaitIdle(pVulkanDevice);
+	for (auto& uiCommandBuffer : uiCommandBuffers) {
+		vkResetCommandBuffer(uiCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+	}
+	recordUiCmdBuffers(imageIndex);
+}
+
+void RenderBackend::recreateAllCmdBuffers() {
+	recreateDrawCmdBuffers();
 }
 
 void RenderBackend::createCommandBuffers() {
 	commandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
+	uiCommandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
 
 	VkCommandBufferAllocateInfo allocInfo = {
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -502,15 +541,13 @@ void RenderBackend::createCommandBuffers() {
 		(uint32_t)commandBuffers.size()
 	};
 
-	if (vkAllocateCommandBuffers(pVulkanDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-		throw std::runtime_error("CommandBuffer allocation failed!");
-	}
+	VK_THROW_ON_ERROR(vkAllocateCommandBuffers(pVulkanDevice, &allocInfo, commandBuffers.data()), "CommandBuffer allocation failed!");
 
-	recordCommandBuffers();
+	recordDrawCmdBuffers();
 }
 
 // Record Command Buffers for main geometry
-void RenderBackend::recordCommandBuffers() {
+void RenderBackend::recordDrawCmdBuffers() {
 	auto swapChainFramebuffersRef = pGraphicsPipeline->getFramebufferPtrs();
 
 	for (size_t i = 0; i < commandBuffers.size(); ++i) {
@@ -521,26 +558,34 @@ void RenderBackend::recordCommandBuffers() {
 			nullptr
 		};
 
-		if (vkBeginCommandBuffer(commandBuffers[i], &info) != VK_SUCCESS) {
-			throw std::runtime_error("Begin command buffer recording failed!");
-		}
+		VK_THROW_ON_ERROR(vkBeginCommandBuffer(commandBuffers[i], &info), "Begin command buffer recording failed!");
+		
+		VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
 
-		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[0].color = cClearColor;
-		clearValues[1].depthStencil = { 1.0f, 0 };
+		VkImageSubresourceRange imageRange = {};
+		imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageRange.levelCount = 1;
+		imageRange.layerCount = 1;
+		VkImageSubresourceRange depthRange = {};
+		depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		depthRange.levelCount = 1;
+		depthRange.layerCount = 1;
 
-		VkRenderPassBeginInfo renderPassInfo = {
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			nullptr,
-			pGraphicsPipeline->getRenderPassPtr(),
-			swapChainFramebuffersRef[i],
-			{
-				{ 0, 0 },
-				swapChainExtent
-			},
-			static_cast<uint32_t>(clearValues.size()),
-			clearValues.data()
-		};
+		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffers[i]);
+			vkCmdClearColorImage(commandBuffers[i], swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor, 1, &imageRange);
+		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, commandBuffers[i]);
+		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffers[i]);
+			vkCmdClearDepthStencilImage(commandBuffers[i], depthImages[i].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cDepthColor, 1, &depthRange);
+		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, commandBuffers[i]);
+
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = pGraphicsPipeline->getRenderPassPtr();
+		renderPassInfo.framebuffer = swapChainFramebuffersRef[i];
+		renderPassInfo.clearValueCount = 0;
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -575,15 +620,21 @@ void RenderBackend::recordCommandBuffers() {
 		}
 		vkCmdEndRenderPass(commandBuffers[i]);
 
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-			throw std::runtime_error("End command buffer recording failed!");
-		}
+		VK_THROW_ON_ERROR(vkEndCommandBuffer(commandBuffers[i]),"End command buffer recording failed!");
 	}
+}
+
+void RenderBackend::recordUiCmdBuffers(size_t imageIndex) {
+	const auto& fbptrs = pGraphicsPipeline->getFramebufferPtrs();
+	auto& framebuffer = fbptrs[imageIndex];
+
+	
 }
 
 void RenderBackend::createSyncObjects() {
 	semImageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
 	semRenderFinished.resize(MAX_FRAMES_IN_FLIGHT);
+	semUiFinished.resize(MAX_FRAMES_IN_FLIGHT);
 	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkSemaphoreCreateInfo semInfo = {
@@ -596,17 +647,17 @@ void RenderBackend::createSyncObjects() {
 	};
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-		if (vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semImageAvailable[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semRenderFinished[i]) != VK_SUCCESS ||
-			vkCreateFence(pVulkanDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
-			throw std::runtime_error("Synchronization obejct creation failed!");
-		}
+		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semImageAvailable[i]), "Synchronization obejct creation failed!");
+		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semRenderFinished[i]), "Synchronization obejct creation failed!");
+		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semUiFinished[i]), "Synchronization obejct creation failed!");
+		VK_THROW_ON_ERROR(vkCreateFence(pVulkanDevice, &fenceInfo, nullptr, &inFlightFences[i]), "Synchronization obejct creation failed!");
 	}
 }
 
-void Engine::RenderBackend::setupGui()
+void RenderBackend::setupGui()
 {
-	// todo
+	pUi = std::make_shared<GUI>();
+	pUi->init(static_cast<float>(viewportWidth), static_cast<float>(viewportHeight), pGraphicsPipeline->getRenderPassPtr());
 }
 
 void RenderBackend::setupDebugCallback() {
@@ -759,6 +810,7 @@ void RenderBackend::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 	bufferInfo.usage = usage;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+	//VK_THROW_ON_ERROR(vkCreateBuffer(pVulkanDevice, &bufferInfo, nullptr, &tmpBuffer), "Buffer creation failed!");
 	if (vkCreateBuffer(pVulkanDevice, &bufferInfo, nullptr, &tmpBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("Buffer creation failed!");
 	}
@@ -915,7 +967,7 @@ void RenderBackend::transitionImageLayout(VkImage image, VkFormat format, VkImag
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = image;
 
-	barrier.subresourceRange.aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) ?
+	barrier.subresourceRange.aspectMask = format == depthFormat ?
 		formatHasStencilComponent(format) ?
 		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT
 		: VK_IMAGE_ASPECT_COLOR_BIT;
@@ -987,6 +1039,20 @@ void RenderBackend::transitionImageLayout(VkImage image, VkFormat format, VkImag
 	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+		srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

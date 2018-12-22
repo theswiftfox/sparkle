@@ -30,12 +30,11 @@ namespace Engine {
 			glm::vec3 lightPos;
 		} FragmentShaderUniforms;
 
-		class ShaderProgram {
-		protected:
-			static VkShaderModule createShaderModule(const std::vector<char>& code);
-		
+		class ShaderProgram {		
 		public:
 			ShaderProgram(const std::string& vtxShaderFile, const std::string& tescShaderFile, const std::string& teseShaderFile, const std::string& fragShaderFile, size_t objectInstances);
+
+			static VkShaderModule createShaderModule(const std::vector<char>& code);
 
 			void cleanup() const;
 

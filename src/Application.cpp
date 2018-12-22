@@ -11,6 +11,31 @@
 
 using namespace Engine;
 
+void App::initialize(std::string config) {
+	if (!config.empty()) {
+		pSettings = std::make_unique<Settings>(config);
+	}
+	else {
+		pSettings = loadFromDefault();
+	}
+	if (!pSettings->load()) {
+		std::cout << "Error loading settings" << std::endl;
+	}
+	auto resolution = pSettings->getResolution();
+	windowWidth = resolution.first;
+	windowHeight = resolution.second;
+
+	pCamera = std::make_unique<Camera>(pSettings);
+	pScene = std::make_shared<Geometry::Scene>();
+
+	createWindow();
+
+	pRenderer = std::make_unique<Engine::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
+	pRenderer->initialize(pSettings, pSettings->withValidationLayer());
+
+	pInputController = std::make_shared<InputController>(pWindow, pCamera);
+}
+
 void App::createWindow() {
 	if (glfwInit() != GLFW_TRUE) {
 		throw std::runtime_error("GLFW initialization failed!");
@@ -39,6 +64,7 @@ void App::mainLoop() {
 	auto fpsTimer = lastTime;
 	auto lastFrameTime = 0.0;
 	size_t frames = 0;
+	double mx, my;
 
 	double updateFreq = -1.0;
 	while (!glfwWindowShouldClose(pWindow)) {
@@ -47,17 +73,25 @@ void App::mainLoop() {
 		++frames;
 
 		if (currentTime - fpsTimer >= 1.0) {
-			lastFPS = frames;
+			frameData.fps = frames;
 			frames = 0;
 			fpsTimer = currentTime;
 		}
 				
 		glfwPollEvents();
 
+		// Update imGui
+		ImGui::NewFrame();
+		ImGuiIO& io = ImGui::GetIO();
+		io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+		io.DeltaTime = (float)deltaT;
+		glfwGetCursorPos(pWindow, &mx, &my);
+		io.MousePos = ImVec2((float)mx, (float)my);
+
 		pInputController->update(deltaT);
 		pCamera->update(deltaT);
 		pRenderer->updateUniforms();
-
+		pRenderer->updateUiData(frameData);
 		pRenderer->draw(deltaT);
 
 		lastTime = currentTime;
@@ -69,6 +103,7 @@ void App::cleanup() {
 
 	pRenderer->cleanup();
 
+	ImGui::DestroyContext();
 	glfwDestroyWindow(pWindow);
 	glfwTerminate();
 }
