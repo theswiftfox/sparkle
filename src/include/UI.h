@@ -42,7 +42,7 @@ namespace Engine {
 
 		VkDevice device = VK_NULL_HANDLE;
 
-		int windowWidth, windowHeight;
+		float windowWidth, windowHeight;
 
 		static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
 		void initResources();

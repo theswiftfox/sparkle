@@ -61,7 +61,7 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 }
 
 void RenderBackend::draw(double deltaT) {
-	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, 5e+9);
+	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, uint64_t(5e+9));
 	vkResetFences(pVulkanDevice, 1, &inFlightFences[frameCounter]);
 
 	uint32_t imageIndex;
@@ -428,7 +428,7 @@ void RenderBackend::createImageViews() {
 
 void RenderBackend::createMaterialDescriptorSetLayout() {
 	std::vector< VkDescriptorSetLayoutBinding> textureBindings;
-	size_t texBinding = TEX_BINDING_OFFSET;
+	uint32_t texBinding = TEX_BINDING_OFFSET;
 	for (size_t i = 0; i < materialTextureLimit; ++i) {
 		VkDescriptorSetLayoutBinding fragSamplerBinding = {
 			texBinding,
@@ -509,7 +509,7 @@ void RenderBackend::destroyCommandBuffers() {
 }
 
 void RenderBackend::recreateDrawCmdBuffers() {
-	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, 5e+9);
+	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, uint64_t(5e+9));
 	vkDeviceWaitIdle(pVulkanDevice);
 	for (auto& cmdBuff : commandBuffers) {
 		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);

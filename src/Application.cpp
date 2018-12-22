@@ -88,8 +88,8 @@ void App::mainLoop() {
 		glfwGetCursorPos(pWindow, &mx, &my);
 		io.MousePos = ImVec2((float)mx, (float)my);
 
-		pInputController->update(deltaT);
-		pCamera->update(deltaT);
+		pInputController->update((float)deltaT);
+		pCamera->update((float)deltaT);
 		pRenderer->updateUniforms();
 		pRenderer->updateUiData(frameData);
 		pRenderer->draw(deltaT);
