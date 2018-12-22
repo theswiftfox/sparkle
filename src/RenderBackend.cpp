@@ -3,6 +3,8 @@
 #include <map>
 #include <set>
 
+#include <future>
+
 using namespace Engine;
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
@@ -55,9 +57,6 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 	setupVulkan();
 
 	pScene->loadFromFile(settings->getLevelPath());
-
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
-	recreateDrawCmdBuffers();
 }
 
 void RenderBackend::draw(double deltaT) {
@@ -226,6 +225,7 @@ void RenderBackend::cleanup() {
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
 	pScene.reset();
+	pUi.reset();
 
 	vkDestroyDevice(pVulkanDevice, nullptr);
 
@@ -508,6 +508,10 @@ void RenderBackend::destroyCommandBuffers() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 }
 
+void RenderBackend::updateDrawCommand() {
+	recreateDrawCmdBuffers();
+}
+
 void RenderBackend::recreateDrawCmdBuffers() {
 	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, uint64_t(5e+9));
 	vkDeviceWaitIdle(pVulkanDevice);
@@ -515,14 +519,6 @@ void RenderBackend::recreateDrawCmdBuffers() {
 		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 	}
 	recordDrawCmdBuffers();
-}
-
-void RenderBackend::recreateUiCmdBuffers(size_t imageIndex) {
-	//vkDeviceWaitIdle(pVulkanDevice);
-	for (auto& uiCommandBuffer : uiCommandBuffers) {
-		vkResetCommandBuffer(uiCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-	}
-	recordUiCmdBuffers(imageIndex);
 }
 
 void RenderBackend::recreateAllCmdBuffers() {
@@ -622,13 +618,6 @@ void RenderBackend::recordDrawCmdBuffers() {
 
 		VK_THROW_ON_ERROR(vkEndCommandBuffer(commandBuffers[i]),"End command buffer recording failed!");
 	}
-}
-
-void RenderBackend::recordUiCmdBuffers(size_t imageIndex) {
-	const auto& fbptrs = pGraphicsPipeline->getFramebufferPtrs();
-	auto& framebuffer = fbptrs[imageIndex];
-
-	
 }
 
 void RenderBackend::createSyncObjects() {

@@ -65,6 +65,7 @@ void App::mainLoop() {
 	auto lastFrameTime = 0.0;
 	size_t frames = 0;
 	double mx, my;
+	bool initLevel = true;
 
 	double updateFreq = -1.0;
 	while (!glfwWindowShouldClose(pWindow)) {
@@ -79,6 +80,12 @@ void App::mainLoop() {
 		}
 				
 		glfwPollEvents();
+
+		if (pScene->isLoaded() && initLevel) {
+			initLevel = false;
+			pScene->processAssimp();
+			pRenderer->updateDrawCommand();
+		}
 
 		// Update imGui
 		ImGui::NewFrame();

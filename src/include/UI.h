@@ -10,17 +10,30 @@
 #include <glm/glm.hpp>
 
 #include "Texture.h"
+#include <assimp/ProgressHandler.hpp>
 
 namespace Engine {
 	class RenderBackend;
 
-	class GUI {
+	class GUI : public Assimp::ProgressHandler {
 	public:
 		struct FrameData {
 			size_t fps;
 		};
+		struct ProgressData {
+			bool isLoading;
+			float value;
+			int currentStep;
+			int maxSteps;
+
+			ProgressData(bool isLoading = false, float value = 0.0f, int curr = 0, int max = 0) : 
+				isLoading(isLoading), value(value), currentStep(curr), maxSteps(max) { }
+		};
 
 	private:
+		static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
+		static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
+
 		std::shared_ptr<RenderBackend> renderBackend;
 
 		std::shared_ptr<Texture> fontTex;
@@ -28,8 +41,8 @@ namespace Engine {
 		vkExt::SharedMemory* vertexMemory = nullptr;
 		vkExt::Buffer indexBuffer;
 		vkExt::SharedMemory* indexMemory = nullptr;
-		int32_t vtxCount = 0;
-		int32_t idxCount = 0;
+		uint64_t vtxCount = 0;
+		uint64_t idxCount = 0;
 
 		VkRenderPass renderPass;
 		VkPipelineCache pipelineCache;
@@ -47,6 +60,8 @@ namespace Engine {
 		static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
 		void initResources();
 
+		ProgressData assimpProgress;
+
 	public:
 		struct PushConstants {
 			glm::vec2 scale;
@@ -56,6 +71,9 @@ namespace Engine {
 		GUI();
 
 		~GUI();
+
+		bool Update(float percentage = -1.0);
+		void UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/);
 
 		void updateBuffers(const std::vector<VkFence>& fences);
 		void updateFrame(const FrameData frameData);

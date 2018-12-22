@@ -25,7 +25,7 @@ void Node::translate(glm::vec3 pos) {
 }
 
 
-void Geometry::Mesh::meshFromVertsAndIndices(std::vector<Vertex> verts, std::vector<uint32_t> inds)
+void Mesh::meshFromVertsAndIndices(std::vector<Vertex> verts, std::vector<uint32_t> inds)
 {
 	vertices = verts;
 	indices = inds;
@@ -33,7 +33,7 @@ void Geometry::Mesh::meshFromVertsAndIndices(std::vector<Vertex> verts, std::vec
 	bufferOffset = App::getHandle().uploadMeshGPU(this);
 }
 
-glm::mat4 Geometry::Node::accumModel() {
+glm::mat4 Node::accumModel() {
 	glm::mat4 m(1.0f);
 	if (parent) {
 		m = parent->accumModel();
@@ -41,7 +41,7 @@ glm::mat4 Geometry::Node::accumModel() {
 	return m * model;
 }
 
-std::vector<std::shared_ptr<Node>> Engine::Geometry::Node::getDrawableSceneAsFlatVec()
+std::vector<std::shared_ptr<Node>> Node::getDrawableSceneAsFlatVec()
 {
 	std::vector<std::shared_ptr<Node>> nodes;
 	for (const auto& c : children) {
@@ -55,7 +55,7 @@ std::vector<std::shared_ptr<Node>> Engine::Geometry::Node::getDrawableSceneAsFla
 	return nodes;
 }
 
-void Engine::Geometry::Scene::cleanup() {
+void Scene::cleanup() {
 	root.reset();
 
 	for (auto& tex : textureCache) {
@@ -65,7 +65,7 @@ void Engine::Geometry::Scene::cleanup() {
 	textureCache.clear();
 }
 
-std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextures(aiMaterial * mat, aiTextureType type, size_t typeID)
+std::vector<std::shared_ptr<Texture>> Scene::loadMaterialTextures(aiMaterial * mat, aiTextureType type, size_t typeID)
 {
 	std::vector<std::shared_ptr<Texture>> textures;
 	
@@ -80,7 +80,10 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 			stdString = stdString.substr(dirOffs + 1);
 		}
 
-		stdString = rootDirectory + stdString.c_str();
+		{
+			std::lock_guard<std::mutex> lock(dirMutex);
+			stdString = rootDirectory + stdString.c_str();
+		}
 		bool isLoaded = false;
 		for (const auto& tex : textureCache) {
 			if (std::strcmp(tex->path().c_str(), stdString.c_str()) == 0) {
@@ -100,7 +103,7 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 	return textures;
 }
 
-void Engine::Geometry::Scene::processAINode(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
+void Scene::processAINode(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
 {
 	//auto aiMat = glm::make_mat4(&node->mTransformation.a1);
 	//auto modelMat = glm::transpose(aiMat);
@@ -115,7 +118,7 @@ void Engine::Geometry::Scene::processAINode(aiNode * node, const aiScene * scene
 	}
 }
 
-void Engine::Geometry::Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
+void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
 {
 	auto meshRoot = parentNode;
 	if (node->mNumMeshes > 1) {
@@ -130,7 +133,7 @@ void Engine::Geometry::Scene::createMesh(aiNode * node, const aiScene * scene, s
 		for (size_t j = 0; j < aiMeshData->mNumVertices; ++j) {
 			auto aiVtx = aiMeshData->mVertices[j];
 			Vertex vtx;
-			vtx.position = glm::vec3(aiVtx.x, aiVtx.y, aiVtx.z);
+			vtx.position = glm::vec3(aiVtx.x, -aiVtx.y, aiVtx.z);
 			auto norm = aiMeshData->mNormals[j];
 			vtx.normal = glm::vec3(norm.x, norm.y, norm.z);
 			if (aiMeshData->mTangents) {
@@ -192,35 +195,52 @@ void Engine::Geometry::Scene::createMesh(aiNode * node, const aiScene * scene, s
 	}
 }
 
-void Engine::Geometry::Scene::loadFromFile(const std::string& fileName) {
-	Assimp::Importer importer;
+void Scene::loadFromFile(const std::string& fileName) {
+	levelLoadFuture = std::async(std::launch::async, [this, fileName]() {
+		auto uiHandle = App::getHandle().getRenderBackend()->getUiHandle();
+		{
+			std::lock_guard<std::mutex> lock(sceneMutex);
+			importer.SetProgressHandler(uiHandle.get());
+			scenePtr = importer.ReadFile(fileName,
+				aiProcess_GenNormals |
+				//	aiProcess_CalcTangentSpace | 
+				aiProcess_JoinIdenticalVertices |
+				aiProcess_Triangulate |
+				aiProcess_FlipUVs |
+				aiProcess_FindDegenerates |
+				aiProcess_SortByPType |
+				//	aiProcess_PreTransformVertices |
+				0
+			);
+		}
+		if (!scenePtr) {
+			// todo error logging in gui!
+			std::cout << "Unable to load scene from " + fileName << std::endl;
+			return;
+		}
 
-	auto aiScene = importer.ReadFile(fileName,
-		aiProcess_GenNormals |
-	//	aiProcess_CalcTangentSpace | 
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_Triangulate |
-		aiProcess_FlipUVs |
-		aiProcess_FindDegenerates |
-		aiProcess_SortByPType |
-	//	aiProcess_PreTransformVertices |
-		0
-	);
-
-	if (!aiScene) {
-		// todo error logging in gui!
-		std::cout << "Unable to load scene from " + fileName << std::endl;
+		auto dirOffs = fileName.rfind('/');
+		dirOffs = dirOffs == std::string::npos ? fileName.rfind('\\') : dirOffs;
+		{
+			std::lock_guard<std::mutex> lock(dirMutex);
+			if (dirOffs != std::string::npos) {
+				rootDirectory = fileName.substr(0, dirOffs) + "/";
+			}
+			else {
+				rootDirectory = "assets/";
+			}
+		}
+		loaded = true;
 		return;
-	}
+	});
+}
 
-	auto dirOffs = fileName.rfind('/');
-	dirOffs = dirOffs == std::string::npos ? fileName.rfind('\\') : dirOffs;
-	if (dirOffs != std::string::npos) {
-		rootDirectory = fileName.substr(0, dirOffs) + "/";
+void Scene::processAssimp() {
+	levelLoadFuture.get();
+	{
+		std::lock_guard<std::mutex> lock(sceneMutex);
+		processAINode(scenePtr->mRootNode, scenePtr, root);
+		importer.FreeScene(); // todo fixme: this leads to exception once the importer is deleted on ~GUI()!
+		App::getHandle().getRenderBackend()->getUiHandle()->Update();
 	}
-	else {
-		rootDirectory = "assets/";
-	}
-
-	processAINode(aiScene->mRootNode, aiScene, root);
 }

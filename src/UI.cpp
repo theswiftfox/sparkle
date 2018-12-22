@@ -16,7 +16,6 @@ VkPipelineShaderStageCreateInfo Engine::GUI::loadUiShader(const std::string shad
 	auto module = Shaders::ShaderProgram::createShaderModule(shaderData);
 
 	info.module = module;
-
 	return info;
 }
 
@@ -25,6 +24,7 @@ GUI::GUI() {
 	ImGui::CreateContext();
 	renderBackend = App::getHandle().getRenderBackend();
 	device = renderBackend->getDevice();
+	assimpProgress = ProgressData();
 }
 
 GUI::~GUI() {
@@ -217,28 +217,26 @@ void GUI::initResources() {
 void GUI::updateBuffers(const std::vector<VkFence>& fences) {
 	auto drawData = ImGui::GetDrawData();
 
-	VkDeviceSize vtxBuffSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-	VkDeviceSize idxBuffSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
-
-	if ((vtxBuffSize == 0) || (idxBuffSize == 0)) {
+	if ((drawData->TotalVtxCount == 0) || (drawData->TotalIdxCount == 0)) {
 		return;
 	}
 
-	bool vtxResize = vtxCount < drawData->TotalVtxCount;
+	bool vtxResize = vtxCount < static_cast<uint64_t>(drawData->TotalVtxCount);
 	if ((vertexBuffer.buffer == VK_NULL_HANDLE) || vtxResize) {
 		if (vtxResize && vertexBuffer.buffer != VK_NULL_HANDLE) {
-			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, uint64_t(5e+9)); // wait for 5s
+			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, uint64_t(5e+8)); // wait for .5s
 			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
 		}
 		vertexBuffer.destroy(true);
 		if (!vertexMemory) {
 			vertexMemory = new vkExt::SharedMemory();
 		}
+		VkDeviceSize vtxBuffSize = std::min<VkDeviceSize>(sizeof(ImDrawVert) * drawData->TotalVtxCount * 10, minVtxBufferSize);
+		vtxCount = vtxBuffSize / sizeof(ImDrawVert);
 		renderBackend->createBuffer(vtxBuffSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vertexBuffer, vertexMemory);
-		vtxCount = drawData->TotalVtxCount;
 		vertexBuffer.map();
 	}
-	bool idxResize = idxCount < drawData->TotalIdxCount;
+	bool idxResize = idxCount < static_cast<uint64_t>(drawData->TotalIdxCount);
 	if ((indexBuffer.buffer == VK_NULL_HANDLE) || idxResize) {
 		if (idxResize && !vtxResize && indexBuffer.buffer != VK_NULL_HANDLE) {
 			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -248,8 +246,9 @@ void GUI::updateBuffers(const std::vector<VkFence>& fences) {
 		if (!indexMemory) {
 			indexMemory = new vkExt::SharedMemory();
 		}
+		VkDeviceSize idxBuffSize = std::min<VkDeviceSize>(sizeof(ImDrawIdx) * drawData->TotalIdxCount * 10, minIdxBufferSize);
+		idxCount = idxBuffSize / sizeof(ImDrawIdx);
 		renderBackend->createBuffer(idxBuffSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, indexBuffer, indexMemory);
-		idxCount = drawData->TotalIdxCount;
 		indexBuffer.map();
 	}
 
@@ -278,7 +277,25 @@ void GUI::updateFrame(GUI::FrameData frameData) {
 	ImGui::End();
 	// Todo: ImGui windows etc
 
-	ImGui::ShowDemoWindow();
+	if (assimpProgress.isLoading) {
+		ImGui::SetNextWindowPos(ImVec2(10, 10));
+		int flags = ImGuiWindowFlags_NoTitleBar;
+		flags |= ImGuiWindowFlags_AlwaysAutoResize;
+		flags |= ImGuiWindowFlags_NoMove;
+		ImGui::Begin("Loading", nullptr, flags);
+		if (assimpProgress.value > 0.000001f) {
+			auto text = "Loading assets: " + std::to_string(assimpProgress.currentStep) + "/" + std::to_string(assimpProgress.maxSteps);
+			auto percentage = std::to_string(assimpProgress.value * 100) + " %";
+			ImGui::TextUnformatted(text.c_str());
+			ImGui::TextUnformatted(percentage.c_str());
+		}
+		else {
+			ImGui::TextUnformatted("Loading level file..");
+		}
+		ImGui::End();
+	}
+
+	//ImGui::ShowDemoWindow();
 
 	ImGui::Render();
 }
@@ -352,4 +369,17 @@ void GUI::drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
 		}
 	}
 	vkCmdEndRenderPass(commandBuffer);
+}
+
+bool GUI::Update(float percentage /*=-1*/) {
+	assimpProgress.isLoading = percentage > -1.0f;
+	assimpProgress.value = percentage;
+	
+	return false;
+}
+
+void GUI::UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/) {
+	assimpProgress.currentStep = currentStep;
+	assimpProgress.maxSteps = numberOfSteps;
+	ProgressHandler::UpdatePostProcess(currentStep, numberOfSteps);
 }
