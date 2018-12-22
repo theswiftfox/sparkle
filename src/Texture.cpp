@@ -6,16 +6,28 @@
 using namespace Engine;
 
 Texture::Texture(std::string filePath, size_t typeID) : filePath(filePath), typeID(typeID) {
-	auto& context = App::getHandle().getRenderBackend();
 	auto tex = Tools::FileReader::loadImage(filePath);
 	if (!tex.imageData) {
 		throw std::runtime_error("Unable to load texture from: " + filePath);
 	}
-	width = tex.width;
-	height = tex.height;
-	channels = tex.channels;
+	initFromData(tex.imageData, width, height, 4/*channels*/);
 
-	VkDeviceSize texSize = width * height * 4; // RGBA
+	tex.free();
+}
+
+Texture::Texture(void* data, int width, int height, int channels, size_t typeID) : filePath(""), typeID(typeID) {
+	initFromData(data, width, height, channels);
+}
+
+void Texture::initFromData(void* data, int w, int h, int c) {
+	auto& context = App::getHandle().getRenderBackend();
+
+	width = w;
+	height = h;
+	channels = c;
+
+	VkDeviceSize texSize = width * height * channels; // RGBA
+	if (texSize == 0) return;
 
 	vkExt::Buffer staging;
 	vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
@@ -23,10 +35,8 @@ Texture::Texture(std::string filePath, size_t typeID) : filePath(filePath), type
 	context->createBuffer(texSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);
 
 	staging.map();
-	staging.copyTo(tex.imageData, static_cast<size_t>(texSize));
+	staging.copyTo(data, static_cast<size_t>(texSize));
 	staging.unmap();
-
-	tex.free();
 
 	texMemory = new vkExt::SharedMemory();
 	context->createImage2D(width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texImage, texMemory);

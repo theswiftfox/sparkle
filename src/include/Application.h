@@ -26,8 +26,8 @@ namespace Engine {
 			return handle;
 		}
 
-		void run(std::string config, bool withValidation = false) {
-			initialize(config, withValidation);
+		void run(std::string config) {
+			initialize(config);
 			mainLoop();
 			cleanup();
 		}
@@ -52,7 +52,7 @@ namespace Engine {
 		int windowWidth = WINDOW_WIDTH;
 		int windowHeight = WINDOW_HEIGHT;
 
-		size_t lastFPS;
+		GUI::FrameData frameData{};
 
 		App() {
 			pSettings = loadFromDefault();
@@ -62,26 +62,7 @@ namespace Engine {
 		/* 
 		Function prototypes
 		*/
-		void initialize(std::string config, bool withValidation) {
-			if (!config.empty()) {
-				pSettings = std::make_unique<Settings>(config);
-			} else {
-				pSettings = loadFromDefault();
-			}
-			auto resolution = pSettings->getResolution();
-			windowWidth = resolution.first;
-			windowHeight = resolution.second;
-
-			pCamera = std::make_unique<Camera>(pSettings);
-			pScene = std::make_shared<Geometry::Scene>();
-
-			createWindow();
-
-			pRenderer = std::make_unique<Engine::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
-			pRenderer->initialize(pSettings, withValidation);
-
-			pInputController = std::make_shared<InputController>(pWindow, pCamera);
-		}
+		void initialize(std::string config);
 
 		std::unique_ptr<Settings> loadFromDefault() const {
 			return std::make_unique<Settings>("assets/settings.ini");

@@ -68,6 +68,21 @@ bool Engine::Settings::load() {
 		catch (std::exception &ex) {}
 	}
 
+	// validation layer
+	const auto cVal = ini.GetValue("Engine", "Validation");
+	if (cVal) {
+		validation = cVal[0] == '1' || std::string(cVal) == "True";
+	}
+
+	// level path
+	const auto lvl = ini.GetValue("Scene", "Level");
+	if (lvl) {
+		try {
+			levelPath = std::string(lvl);
+		}
+		catch (std::exception &ex) {}
+	}
+
 	return true;
 }
 
@@ -101,4 +116,12 @@ bool Settings::getFullscreen() const {
 
 std::pair<int, int> Settings::getResolution() const {
 	return { width, height };
+}
+
+std::string Settings::getLevelPath() const {
+	return levelPath;
+}
+
+bool Settings::withValidationLayer() const {
+	return validation;
 }

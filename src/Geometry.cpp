@@ -13,9 +13,10 @@
 using namespace Engine;
 using namespace Geometry;
 
-Mesh::Mesh(MeshData data, std::shared_ptr<Material> material, glm::mat4 model) {
+Mesh::Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<Node> parent, glm::mat4 model) {
 	this->model = model;
 	this->material = material;
+	this->parent = parent;
 	meshFromVertsAndIndices(data.vertices, data.indices);
 }
 
@@ -37,10 +38,7 @@ glm::mat4 Geometry::Node::accumModel() {
 	if (parent) {
 		m = parent->accumModel();
 	}
-	if (drawable()) {
-		m = m * model;
-	}
-	return m;
+	return m * model;
 }
 
 std::vector<std::shared_ptr<Node>> Engine::Geometry::Node::getDrawableSceneAsFlatVec()
@@ -104,21 +102,25 @@ std::vector<std::shared_ptr<Texture>> Engine::Geometry::Scene::loadMaterialTextu
 
 void Engine::Geometry::Scene::processAINode(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
 {
+	//auto aiMat = glm::make_mat4(&node->mTransformation.a1);
+	//auto modelMat = glm::transpose(aiMat);
+	//auto parent = std::make_shared<Node>(modelMat, parentNode);
 	auto parent = parentNode;
 	if (node->mNumMeshes > 0) {
-		auto mesh = createMesh(node, scene, parent);
-		parent->addChild(mesh);
-		parent = mesh;
-	}
+		createMesh(node, scene, parent);
+	}	
 
 	for (size_t i = 0; i < node->mNumChildren; ++i) {
 		processAINode(node->mChildren[i], scene, parent);
 	}
 }
 
-std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
+void Engine::Geometry::Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
 {
-	std::vector<std::shared_ptr<Node>> nodes;
+	auto meshRoot = parentNode;
+	if (node->mNumMeshes > 1) {
+		meshRoot = std::make_shared<Node>(glm::mat4(1.0f), parentNode);
+	}
 
 	for (size_t i = 0; i < node->mNumMeshes; ++i) {
 		auto aiMeshData = scene->mMeshes[node->mMeshes[i]];
@@ -128,17 +130,23 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 		for (size_t j = 0; j < aiMeshData->mNumVertices; ++j) {
 			auto aiVtx = aiMeshData->mVertices[j];
 			Vertex vtx;
-			vtx.position = glm::vec3(aiVtx.x, -aiVtx.y, aiVtx.z);
+			vtx.position = glm::vec3(aiVtx.x, aiVtx.y, aiVtx.z);
 			auto norm = aiMeshData->mNormals[j];
 			vtx.normal = glm::vec3(norm.x, norm.y, norm.z);
-			auto tang = aiMeshData->mTangents[j];
-			vtx.tangent = glm::vec3(tang.x, tang.y, tang.z);
-			auto btang = aiMeshData->mBitangents[j];
-			vtx.bitangent = glm::vec3(btang.x, btang.y, btang.z);
+			if (aiMeshData->mTangents) {
+				auto tang = aiMeshData->mTangents[j];
+				vtx.tangent = glm::vec3(tang.x, tang.y, tang.z);
+				auto btang = aiMeshData->mBitangents[j];
+				vtx.bitangent = glm::vec3(btang.x, btang.y, btang.z);
+			}
+			else {
+				vtx.tangent = glm::vec3(0.0f);
+				vtx.bitangent = vtx.tangent;
+			}
 
 			if (aiMeshData->mTextureCoords[0]) {
 				auto tc = aiMeshData->mTextureCoords[0][j];
-				vtx.texCoord = glm::vec2(tc.x, 1.0f - tc.y);
+				vtx.texCoord = glm::vec2(tc.x, tc.y);
 			}
 
 			data.vertices.push_back(vtx);
@@ -170,27 +178,17 @@ std::shared_ptr<Node> Engine::Geometry::Scene::createMesh(aiNode * node, const a
 			nodeTransform.a1, nodeTransform.b1, nodeTransform.c1, nodeTransform.d1,
 			nodeTransform.a2, nodeTransform.b2, nodeTransform.c2, nodeTransform.d2,
 			nodeTransform.a3, nodeTransform.b3, nodeTransform.c3, nodeTransform.d3,
-			nodeTransform.a4, nodeTransform.b4, nodeTransform.b4, nodeTransform.d4
+			nodeTransform.a4, nodeTransform.b4, nodeTransform.c4, nodeTransform.d4
 		};
 
 		glm::mat4 nodeModel = glm::make_mat4(tvals);
 
-		auto mesh = std::make_shared<Mesh>(data, material, nodeModel);
+		auto mesh = std::make_shared<Mesh>(data, material, meshRoot, nodeModel);
+		meshRoot->addChild(mesh);
 
 		if (aiMeshData->mName.length > 0) {
 			mesh->setName(std::string(aiMeshData->mName.C_Str()));
 		}
-
-		nodes.push_back(std::static_pointer_cast<Node, Mesh>(mesh));
-	}
-
-	if (nodes.size() > 0) {
-		auto root = std::make_shared<Node>();
-		root->setChildren(nodes);
-		return root;
-	}
-	else {
-		return nodes[0];
 	}
 }
 
@@ -199,14 +197,20 @@ void Engine::Geometry::Scene::loadFromFile(const std::string& fileName) {
 
 	auto aiScene = importer.ReadFile(fileName,
 		aiProcess_GenNormals |
-		aiProcess_CalcTangentSpace |
+	//	aiProcess_CalcTangentSpace | 
+		aiProcess_JoinIdenticalVertices |
 		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices | 
-		aiProcess_SortByPType
+		aiProcess_FlipUVs |
+		aiProcess_FindDegenerates |
+		aiProcess_SortByPType |
+	//	aiProcess_PreTransformVertices |
+		0
 	);
 
 	if (!aiScene) {
-		throw std::runtime_error("Unable to load scene from " + fileName);
+		// todo error logging in gui!
+		std::cout << "Unable to load scene from " + fileName << std::endl;
+		return;
 	}
 
 	auto dirOffs = fileName.rfind('/');

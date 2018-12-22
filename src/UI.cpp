@@ -1,17 +1,39 @@
 #include <UI.h>
+#include "FileReader.h"
+#include "Application.h"
+#include "RenderBackend.h"
 
 using namespace Engine;
 
+VkPipelineShaderStageCreateInfo Engine::GUI::loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage)
+{
+	VkPipelineShaderStageCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	info.stage = stage;
+	info.pName = "main";
+	
+	auto shaderData = Engine::Tools::FileReader::readFile(shaderName);
+	auto module = Shaders::ShaderProgram::createShaderModule(shaderData);
+
+	info.module = module;
+
+	return info;
+}
+
+GUI::GUI() {
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	renderBackend = App::getHandle().getRenderBackend();
+	device = renderBackend->getDevice();
+}
+
 GUI::~GUI() {
-	ImGui::DestroyContext();
+	vertexBuffer.destroy(true);
+	indexBuffer.destroy(true);
+	delete(vertexMemory);
+	delete(indexMemory);
 
-	vertexBuffer.destroy();
-	indexBuffer.destroy();
-
-	fontImage.destroy();
-	vkDestroyImageView(device, fontImageView, nullptr);
-	fontMemory->free(device);
-	vkDestroySampler(device, sampler, nullptr);
+	fontTex.reset();
 	vkDestroyPipelineCache(device, pipelineCache, nullptr);
 	vkDestroyPipeline(device, pipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -19,13 +41,15 @@ GUI::~GUI() {
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 }
 
-void GUI::init(float width, float height) {
-	ImGuiStyle& style = ImGui::GetStyle();
-	// set style?
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.DisplaySize = ImVec2(width, height);
+void GUI::init(float width, float height, VkRenderPass renderPass) {
+	windowWidth = width;
+	windowHeight = height;
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.DisplaySize = ImVec2((float)width, (float)height);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+	ImGui::StyleColorsDark();
+	this->renderPass = renderPass;
+	initResources();
 }
 
 void GUI::initResources() {
@@ -35,45 +59,8 @@ void GUI::initResources() {
 	int widthTx, heightTx;
 
 	io.Fonts->GetTexDataAsRGBA32(&fontData, &widthTx, &heightTx);
-	const VkDeviceSize fontSize = widthTx * heightTx * 4 * sizeof(char);
 
-	renderBackend->createImage2D(widthTx, heightTx, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
-	fontImageView = renderBackend->createImageView2D(fontImage.image, fontImage.imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-
-	vkExt::Buffer staging;
-	vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
-	renderBackend->createBuffer(fontSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);
-
-	staging.map();
-		staging.copyTo(fontData, fontSize);
-	staging.unmap();
-
-	const auto cmdCopy = renderBackend->beginOneTimeCommand();
-	renderBackend->transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdCopy);
-	
-	VkBufferImageCopy copyRegion = {};
-	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	copyRegion.imageSubresource.layerCount = 1;
-	copyRegion.imageExtent = { fontImage.width, fontImage.height, 1 };
-
-	vkCmdCopyBufferToImage(cmdCopy, staging.buffer, fontImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-	renderBackend->transitionImageLayout(fontImage.image, fontImage.imageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	renderBackend->endOneTimeCommand(cmdCopy);
-	staging.destroy(true);
-
-	VkSamplerCreateInfo samplerInfo = {};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.pNext = nullptr;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-	VK_THROW_ON_ERROR(vkCreateSampler(device, &samplerInfo, nullptr, &sampler), "Sampler creation for UI failed!");
+	fontTex = std::make_shared<Texture>(fontData, widthTx, heightTx, 4, 0);
 
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
@@ -89,7 +76,7 @@ void GUI::initResources() {
 	VK_THROW_ON_ERROR(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), "Error creating UI descriptor pool");
 	
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {
-		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, &sampler }
+		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr }
 	};
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCreateInfo = {};
@@ -107,8 +94,9 @@ void GUI::initResources() {
 
 	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet), "Error allocating descriptor set for UI");
 
+	const auto fontDesc = fontTex->descriptor();
 	std::array<VkWriteDescriptorSet, 1> writeSets = {
-		{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 0, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  }
+		{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 0, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fontDesc }
 	};
 	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
 
@@ -191,6 +179,177 @@ void GUI::initResources() {
 	VkGraphicsPipelineCreateInfo pipelineInfo = {};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.layout = pipelineLayout;
-	
+	pipelineInfo.renderPass = renderPass;
+	pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
+	pipelineInfo.pRasterizationState = &rasterizationInfo;
+	pipelineInfo.pColorBlendState = &blendInfo;
+	pipelineInfo.pMultisampleState = &multisampleInfo;
+	pipelineInfo.pViewportState = &viewportInfo;
+	pipelineInfo.pDepthStencilState = &depthStencilInfo;
+	pipelineInfo.pDynamicState = &dynamicStateInfo;
+	pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineInfo.pStages = shaderStages.data();
 
+	std::vector<VkVertexInputBindingDescription> vtxAttrib = {
+		{ 0, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX }
+	};
+	std::vector<VkVertexInputAttributeDescription> vtxDesc = {
+		{ 0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos)},
+		{ 1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv)},
+		{ 2, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(ImDrawVert, col)}
+	};
+
+	VkPipelineVertexInputStateCreateInfo vtxInputInfo{};
+	vtxInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vtxInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vtxAttrib.size());
+	vtxInputInfo.pVertexBindingDescriptions = vtxAttrib.data();
+	vtxInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vtxDesc.size());
+	vtxInputInfo.pVertexAttributeDescriptions = vtxDesc.data();
+
+	pipelineInfo.pVertexInputState = &vtxInputInfo;
+
+	shaderStages[0] = loadUiShader("shaders/ui.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = loadUiShader("shaders/ui.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	VK_THROW_ON_ERROR(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &pipeline), "GUI Pipeline creation failed");
+}
+
+void GUI::updateBuffers(const std::vector<VkFence>& fences) {
+	auto drawData = ImGui::GetDrawData();
+
+	VkDeviceSize vtxBuffSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
+	VkDeviceSize idxBuffSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+
+	if ((vtxBuffSize == 0) || (idxBuffSize == 0)) {
+		return;
+	}
+
+	bool vtxResize = vtxCount < drawData->TotalVtxCount;
+	if ((vertexBuffer.buffer == VK_NULL_HANDLE) || vtxResize) {
+		if (vtxResize && vertexBuffer.buffer != VK_NULL_HANDLE) {
+			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, 5e+9); // wait for 5s
+			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
+		}
+		vertexBuffer.destroy(true);
+		if (!vertexMemory) {
+			vertexMemory = new vkExt::SharedMemory();
+		}
+		renderBackend->createBuffer(vtxBuffSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vertexBuffer, vertexMemory);
+		vtxCount = drawData->TotalVtxCount;
+		vertexBuffer.map();
+	}
+	bool idxResize = idxCount < drawData->TotalIdxCount;
+	if ((indexBuffer.buffer == VK_NULL_HANDLE) || idxResize) {
+		if (idxResize && !vtxResize && indexBuffer.buffer != VK_NULL_HANDLE) {
+			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
+		}
+		indexBuffer.destroy(true);
+		if (!indexMemory) {
+			indexMemory = new vkExt::SharedMemory();
+		}
+		renderBackend->createBuffer(idxBuffSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, indexBuffer, indexMemory);
+		idxCount = drawData->TotalIdxCount;
+		indexBuffer.map();
+	}
+
+	VkDeviceSize vtxOffs = 0;
+	VkDeviceSize idxOffs = 0;
+	for (size_t i = 0; i < drawData->CmdListsCount; ++i) {
+		const auto cmdList = drawData->CmdLists[i];
+		vertexBuffer.copyTo(cmdList->VtxBuffer.Data, cmdList->VtxBuffer.Size * sizeof(ImDrawVert), vtxOffs);
+		indexBuffer.copyTo(cmdList->IdxBuffer.Data, cmdList->IdxBuffer.Size * sizeof(ImDrawIdx), idxOffs);
+		vtxOffs += (cmdList->VtxBuffer.Size * sizeof(ImDrawVert));
+		idxOffs += (cmdList->IdxBuffer.Size * sizeof(ImDrawIdx));
+	}
+
+	vertexBuffer.flush();
+	indexBuffer.flush();
+}
+
+void GUI::updateFrame(GUI::FrameData frameData) {
+	ImGui::SetNextWindowPos(ImVec2(windowWidth - 100, 10));
+	int flags = ImGuiWindowFlags_NoTitleBar;
+	flags |= ImGuiWindowFlags_AlwaysAutoResize;
+	flags |= ImGuiWindowFlags_NoMove;
+	ImGui::Begin("FPS", nullptr, flags);
+	auto text = "FPS: " + std::to_string(frameData.fps);
+	ImGui::TextUnformatted(text.c_str());
+	ImGui::End();
+	// Todo: ImGui windows etc
+
+	ImGui::ShowDemoWindow();
+
+	ImGui::Render();
+}
+
+void GUI::drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+	auto& io = ImGui::GetIO();
+
+	std::array<VkClearValue, 2> clearValues = {};
+	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.framebuffer = framebuffer;
+	renderPassInfo.clearValueCount = 0;
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = renderBackend->getSwapChainExtent();
+
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+	auto drawData = ImGui::GetDrawData();
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = drawData->DisplaySize.x;
+	viewport.height = drawData->DisplaySize.y;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+	pushConstants.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
+	pushConstants.translate = glm::vec2(-1.0f - drawData->DisplayPos.x * pushConstants.scale.x, -1.0f - drawData->DisplayPos.y * pushConstants.scale.y);
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pushConstants);
+
+	int32_t vtxOffs = 0;
+	uint32_t idxOffs = 0;
+	ImVec2 displayPos = drawData->DisplayPos;
+
+	if (drawData->CmdListsCount > 0) {
+		VkDeviceSize offsets[1] = {
+			0
+		};
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+
+		for (int32_t i = 0; i < drawData->CmdListsCount; ++i) {
+			const auto cmdList = drawData->CmdLists[i];
+			for (int32_t j = 0; j < cmdList->CmdBuffer.Size; ++j) {
+				const auto drawCmd = &cmdList->CmdBuffer[j];
+				VkRect2D scissor{};
+				scissor.offset = {
+					std::max(static_cast<int32_t>(drawCmd->ClipRect.x - displayPos.x), 0), // x
+					std::max(static_cast<int32_t>(drawCmd->ClipRect.y - displayPos.y), 0)  // y
+				};
+				scissor.extent = {
+					static_cast<uint32_t>(drawCmd->ClipRect.z - drawCmd->ClipRect.x), // width
+					static_cast<uint32_t>(drawCmd->ClipRect.w - drawCmd->ClipRect.y + 1)  // height
+				};
+
+				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+				vkCmdDrawIndexed(commandBuffer, drawCmd->ElemCount, 1, idxOffs, vtxOffs, 0);
+				idxOffs += drawCmd->ElemCount;
+			}
+			vtxOffs += cmdList->VtxBuffer.Size;
+		}
+	}
+	vkCmdEndRenderPass(commandBuffer);
 }

@@ -49,10 +49,10 @@ vec3 blinnPhong(vec3 fragPos, vec3 normal, vec3 lightPos, vec3 viewPos) {
 }
 
 void main() {
-	vec3 normal = /* fs_in.normal; */ texture(normalMap, fs_in.uv).rgb;
-	vec3 pos = /*fs_in.position; */fs_in.tangentPos;
-	vec3 light = /*ubo.lightPos; */fs_in.tangentLightPos;
-	vec3 view = /*ubo.cameraPos; */fs_in.tangentViewPos;
+	vec3 normal = fs_in.normal; /*/ texture(normalMap, fs_in.uv).rgb; */
+	vec3 pos = fs_in.position; /*/fs_in.tangentPos; */
+	vec3 light = ubo.lightPos; /*/fs_in.tangentLightPos; */
+	vec3 view = ubo.cameraPos; /*/fs_in.tangentViewPos; */
 
 	outColor = vec4(blinnPhong(pos, normal, light, view), 1.0);
 }

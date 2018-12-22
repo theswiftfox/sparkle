@@ -79,6 +79,7 @@ namespace Engine {
 
 		class Node {
 		public:
+			Node(glm::mat4 modelMat = glm::mat4(1.0f), std::shared_ptr<Node> parentNode = nullptr) : model(modelMat), parent(parentNode), ID("") { }
 			virtual bool drawable() { return material != nullptr; }
 
 			glm::mat4 accumModel();
@@ -107,7 +108,7 @@ namespace Engine {
 
 			std::string ID;
 
-			glm::mat4 model = glm::mat4(1.0f);
+			glm::mat4 model;
 		};
 
 		class Mesh : public Node {
@@ -122,7 +123,7 @@ namespace Engine {
 				std::vector<uint32_t> indices;
 			};
 
-			Mesh(MeshData data, std::shared_ptr<Material> material, glm::mat4 model = glm::mat4(1.0f));
+			Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<Node> parent = nullptr, glm::mat4 model = glm::mat4(1.0f));
 
 			bool drawable() { return Node::drawable(); }
 
@@ -174,7 +175,7 @@ namespace Engine {
 
 			std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, size_t typeID);
 			void processAINode(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
-			std::shared_ptr<Node> createMesh(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
+			void createMesh(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
 		};
 	}
 }
