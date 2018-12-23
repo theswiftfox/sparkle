@@ -17,7 +17,9 @@ Mesh::Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<No
 	this->model = model;
 	this->material = material;
 	this->parent = parent;
-	meshFromVertsAndIndices(data.vertices, data.indices);
+	if (material) { // only upload drawable meshes to gpu!
+		meshFromVertsAndIndices(data.vertices, data.indices);
+	}
 }
 
 void Node::translate(glm::vec3 pos) {
@@ -53,6 +55,14 @@ std::vector<std::shared_ptr<Node>> Node::getDrawableSceneAsFlatVec()
 	}
 
 	return nodes;
+}
+
+const std::vector<std::shared_ptr<Node>> Scene::getRenderableScene() {
+	if (cacheDirty) {
+		drawableSceneCache = root->getDrawableSceneAsFlatVec();
+		cacheDirty = false;
+	}
+	return drawableSceneCache;
 }
 
 void Scene::cleanup() {
@@ -173,7 +183,13 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 			textures.insert(textures.end(), spec.begin(), spec.end());
 			textures.insert(textures.end(), norm.begin(), norm.end());
 
-			material = std::make_shared<Material>(textures);
+			if (textures.size() > 0) {
+				material = std::make_shared<Material>(textures);
+			}
+			else {
+				// todo: non texture material?
+				material = nullptr;
+			}
 		}
 
 		auto nodeTransform = node->mTransformation;
@@ -213,6 +229,10 @@ void Scene::loadFromFile(const std::string& fileName) {
 				0
 			);
 		}
+		auto err = std::string(importer.GetErrorString());
+		if (!err.empty()) {
+			std::cout << __FUNCTION__ << ": ImportError: " << err << std::endl;
+		}
 		if (!scenePtr) {
 			// todo error logging in gui!
 			std::cout << "Unable to load scene from " + fileName << std::endl;
@@ -240,7 +260,9 @@ void Scene::processAssimp() {
 	{
 		std::lock_guard<std::mutex> lock(sceneMutex);
 		processAINode(scenePtr->mRootNode, scenePtr, root);
-		importer.FreeScene(); // todo fixme: this leads to exception once the importer is deleted on ~GUI()!
+		cacheDirty = true;
+		importer.SetProgressHandler(nullptr); // important! Importer's destructor calls delete on the progress handler pointer!
+		importer.FreeScene();
 		App::getHandle().getRenderBackend()->getUiHandle()->Update();
 	}
 }

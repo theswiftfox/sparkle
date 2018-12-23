@@ -509,6 +509,7 @@ void RenderBackend::destroyCommandBuffers() {
 }
 
 void RenderBackend::updateDrawCommand() {
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 	recreateDrawCmdBuffers();
 }
 
