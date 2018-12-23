@@ -166,8 +166,7 @@ namespace Engine {
 			}
 
 			// TODO: buffer this and only update on geometry changes
-			const auto getRenderableScene() { return root->getDrawableSceneAsFlatVec(); }
-
+			const std::vector<std::shared_ptr<Node>> getRenderableScene();
 			void loadFromFile(const std::string& fileName);
 			void processAssimp();
 			bool isLoaded() const { return loaded; }
@@ -186,6 +185,9 @@ namespace Engine {
 			const aiScene* scenePtr;
 			std::mutex dirMutex;
 			std::string rootDirectory;
+
+			std::vector<std::shared_ptr<Node>> drawableSceneCache;
+			bool cacheDirty = false;
 
 			std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, size_t typeID);
 			void processAINode(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
