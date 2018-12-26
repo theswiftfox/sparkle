@@ -4,14 +4,23 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/pbrmaterial.h>
 
 #include <glm/gtc/type_ptr.hpp>
 
 #include <string>
 #include <unordered_map>
+#include <filesystem>
 
 using namespace Engine;
 using namespace Geometry;
+
+static bool isImageExtension(std::string ext) {
+	if (ext.compare(".png") == 0) return true;
+	if (ext.compare(".jpg") == 0) return true;
+	if (ext.compare(".bmp") == 0) return true;
+	return false;
+}
 
 Mesh::Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<Node> parent, glm::mat4 model) {
 	this->model = model;
@@ -82,31 +91,63 @@ std::vector<std::shared_ptr<Texture>> Scene::loadMaterialTextures(aiMaterial * m
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); ++i) {
 		aiString str;
 		mat->GetTexture(type, i, &str);
+		auto strPtr = str.C_Str();
+		if (*strPtr == '*') { // embedded texture!
+			try {
+				auto index = std::stoi(strPtr + 1);
+				auto texData = scenePtr->mTextures[index];
+				auto name = std::string(texData->mFilename.C_Str());
 
-		auto stdString = std::string(str.C_Str());
-		auto dirOffs = stdString.rfind('/');
-		dirOffs = dirOffs == std::string::npos ? stdString.rfind('\\') : dirOffs;
-		if (dirOffs != std::string::npos) {
-			stdString = stdString.substr(dirOffs + 1);
-		}
-
-		{
-			std::lock_guard<std::mutex> lock(dirMutex);
-			stdString = rootDirectory + stdString.c_str();
-		}
-		bool isLoaded = false;
-		for (const auto& tex : textureCache) {
-			if (std::strcmp(tex->path().c_str(), stdString.c_str()) == 0) {
-				textures.push_back(tex);
-				isLoaded = true;
-				break;
+				bool isLoaded = false;
+				for (const auto& tex : textureCache) {
+					if (std::strcmp(tex->path().c_str(), name.c_str()) == 0) {
+						textures.push_back(tex);
+						isLoaded = true;
+						break;
+					}
+				}
+				if (!isLoaded) {
+					auto tex = std::make_shared<Texture>(texData, typeID, name);
+					textures.push_back(tex);
+				}
+			}
+			catch (std::exception& ex) {
+				// todo: log function
+				std::cout << ex.what() << std::endl;
 			}
 		}
+		else {
+			std::string stdString;
+			if (*strPtr == '/' || *strPtr == '\\') {
+				stdString = std::string(strPtr + 1);
+			}
+			else {
+				stdString = std::string(strPtr);
+			}
+			//auto dirOffs = stdString.rfind('/');
+			//dirOffs = dirOffs == std::string::npos ? stdString.rfind('\\') : dirOffs;
+			//if (dirOffs != std::string::npos) {
+			//	stdString = stdString.substr(dirOffs + 1);
+			//}
 
-		if (!isLoaded) {
-			auto tex = std::make_shared<Texture>(stdString, typeID);
-			textureCache.push_back(tex);
-			textures.push_back(tex);
+			{
+				std::lock_guard<std::mutex> lock(dirMutex);
+				stdString = rootDirectory + stdString.c_str();
+			}
+			bool isLoaded = false;
+			for (const auto& tex : textureCache) {
+				if (std::strcmp(tex->path().c_str(), stdString.c_str()) == 0) {
+					textures.push_back(tex);
+					isLoaded = true;
+					break;
+				}
+			}
+
+			if (!isLoaded) {
+				auto tex = std::make_shared<Texture>(stdString, typeID);
+				textureCache.push_back(tex);
+				textures.push_back(tex);
+			}
 		}
 	}
 
@@ -126,6 +167,26 @@ void Scene::processAINode(aiNode * node, const aiScene * scene, std::shared_ptr<
 	for (size_t i = 0; i < node->mNumChildren; ++i) {
 		processAINode(node->mChildren[i], scene, parent);
 	}
+	for (size_t i = 0; i < scene->mNumLights; ++i) {
+		auto aiLight = scene->mLights[i];
+		auto diffCol = aiLight->mColorDiffuse;
+		auto specCol = aiLight->mColorSpecular;
+
+		aiVector3D vec(0.0f);
+
+		switch (aiLight->mType) {
+		case aiLightSource_DIRECTIONAL:
+			vec = aiLight->mDirection;
+
+			break;
+		case aiLightSource_POINT:
+			vec = aiLight->mPosition;
+			
+			break;
+		default:
+			std::cout << "Light with invalid type. Skipping\r\n";
+		}
+	}
 }
 
 void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Node> parentNode)
@@ -143,7 +204,7 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 		for (size_t j = 0; j < aiMeshData->mNumVertices; ++j) {
 			auto aiVtx = aiMeshData->mVertices[j];
 			Vertex vtx;
-			vtx.position = glm::vec3(aiVtx.x, -aiVtx.y, aiVtx.z);
+			vtx.position = glm::vec3(aiVtx.x, aiVtx.y, aiVtx.z);
 			auto norm = aiMeshData->mNormals[j];
 			vtx.normal = glm::vec3(norm.x, norm.y, norm.z);
 			if (aiMeshData->mTangents) {
@@ -178,20 +239,66 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 			auto aiMat = scene->mMaterials[aiMeshData->mMaterialIndex];
 			auto textures = loadMaterialTextures(aiMat, aiTextureType_DIFFUSE, TEX_TYPE_DIFFUSE);
 			auto spec = loadMaterialTextures(aiMat, aiTextureType_SPECULAR, TEX_TYPE_SPECULAR);
-			auto norm = loadMaterialTextures(aiMat, aiTextureType_HEIGHT, TEX_TYPE_NORMAL);
+			auto norm = loadMaterialTextures(aiMat, aiTextureType_NORMALS, TEX_TYPE_NORMAL);
 
+			if (textures.empty()) { // workaround for current blender export error - should be fixed when using own level format!
+				auto matName = std::string(aiMat->GetName().C_Str());
+				matName = matName.substr(0, matName.find_first_of('.'));
+				if (textureFiles.find(matName) != textureFiles.end()) {
+					auto texFile = rootDirectory + textureFiles[matName];
+					bool isLoaded = false;
+					for (const auto& tex : textureCache) {
+						if (tex->path().compare(texFile) == 0) {
+							textures.push_back(tex);
+							isLoaded = true;
+							break;
+						}
+					}
+
+					if (!isLoaded) {
+						auto tex = std::make_shared<Texture>(texFile, TEX_TYPE_DIFFUSE);
+						textureCache.push_back(tex);
+						textures.push_back(tex);
+					}
+					textures.push_back(textureCache[1]); // load default spec texture
+				}
+			}
+			if (textures.size() == 0) {
+				// load default textures
+				textures.insert(textures.end(), textureCache.begin(), textureCache.begin() + 1);
+			}
+			if (spec.size() == 0) {
+				// load default spec tex
+				spec.insert(spec.end(), textureCache.begin() + 1, textureCache.begin() + 2);
+			}
 			textures.insert(textures.end(), spec.begin(), spec.end());
 			textures.insert(textures.end(), norm.begin(), norm.end());
 
-			if (textures.size() > 0) {
-				material = std::make_shared<Material>(textures);
+			float specular;
+			if (aiGetMaterialFloat(aiMat, AI_MATKEY_REFLECTIVITY, &specular) != AI_SUCCESS) {
+				specular = 0.5f;
+			}
+
+			float roughness;
+			bool roughnessFound = aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness) == AI_SUCCESS;
+			if (!roughnessFound) {
+				roughness = 0.5f;
+			}
+			float metallic;
+			bool metallicFound = aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic) == AI_SUCCESS;
+			if (!metallicFound) {
+				metallic = 0.0f;
+			}
+			// TODO: support AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR
+
+			if (roughnessFound || metallicFound) { // pbr!
+				material = std::make_shared<Material>(textures, specular, roughness, metallic);
 			}
 			else {
-				// todo: non texture material?
-				material = nullptr;
+				material = std::make_shared<Material>(textures, specular);
 			}
 		}
-
+		
 		auto nodeTransform = node->mTransformation;
 		float tvals[16] = {
 			nodeTransform.a1, nodeTransform.b1, nodeTransform.c1, nodeTransform.d1,
@@ -249,6 +356,13 @@ void Scene::loadFromFile(const std::string& fileName) {
 			else {
 				rootDirectory = "assets/";
 			}
+			for (const auto& file : std::filesystem::directory_iterator(rootDirectory)) {
+				if (file.is_directory()) continue;
+				auto ext = file.path().extension();
+				if (isImageExtension(ext.string())) {
+					textureFiles[file.path().stem().string()] = (file.path().filename().string());
+				}
+			}
 		}
 		loaded = true;
 		return;
@@ -259,6 +373,8 @@ void Scene::processAssimp() {
 	levelLoadFuture.get();
 	{
 		std::lock_guard<std::mutex> lock(sceneMutex);
+		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_DIFFUSE));
+		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/spec.png", TEX_TYPE_SPECULAR));
 		processAINode(scenePtr->mRootNode, scenePtr, root);
 		cacheDirty = true;
 		importer.SetProgressHandler(nullptr); // important! Importer's destructor calls delete on the progress handler pointer!

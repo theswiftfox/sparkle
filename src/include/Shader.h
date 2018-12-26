@@ -5,7 +5,6 @@
 
 #include "VulkanExtension.h"
 #include "Geometry.h"
-
 #include <string>
 #include <vector>
 
@@ -17,8 +16,8 @@ namespace Engine {
 		typedef struct UniformBufferObject {
 			glm::mat4 view;
 			glm::mat4 projection;
-			glm::vec3 cameraPos;
-			glm::vec3 lightPos;
+			glm::vec4 cameraPos;
+			glm::vec4 lightPos;
 		} UBO;
 
 		typedef struct InstancedUniformBufferObject {
@@ -26,8 +25,8 @@ namespace Engine {
 		} InstancedUBO;
 
 		typedef struct FragmentShaderUniforms {
-			glm::vec3 cameraPos;
-			glm::vec3 lightPos;
+			glm::vec4 cameraPos;
+			glm::vec4 lightPos;
 		} FragmentShaderUniforms;
 
 		class ShaderProgram {		
@@ -42,7 +41,7 @@ namespace Engine {
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
 			void updateFragmentShaderSettings(const FragmentShaderUniforms& sets);
 
-			auto getDynamicAlignment() const { return dynamicAlignment; }
+			auto getDynamicAlignment() const { return dUboAlignment; }
 
 			std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
 			auto tesselationEnabled() const
@@ -69,7 +68,7 @@ namespace Engine {
 			size_t fragSettingsOffset{};
 
 			size_t objectCount;
-			uint32_t dynamicAlignment{};
+			uint32_t dUboAlignment{};
 
 			InstancedUBO dynamicUboData{};
 			VkDeviceSize dynamicUboDataSize{};

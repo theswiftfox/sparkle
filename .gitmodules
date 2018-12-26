@@ -13,3 +13,6 @@
 [submodule "3rdParty/stb"]
 	path = 3rdParty/stb
 	url = https://github.com/nothings/stb.git
+[submodule "3rdParty/gli"]
+	path = 3rdParty/gli
+	url = https://github.com/g-truc/gli.git

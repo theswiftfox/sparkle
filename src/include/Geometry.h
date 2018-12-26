@@ -162,7 +162,9 @@ namespace Engine {
 		class Scene {
 		public:
 			Scene() {
-				root = std::make_shared<Node>();
+				glm::mat4 model(1.0f);
+				model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				root = std::make_shared<Node>(model);
 			}
 
 			// TODO: buffer this and only update on geometry changes
@@ -179,6 +181,7 @@ namespace Engine {
 
 			std::shared_ptr<Node> root;
 			std::vector<std::shared_ptr<Texture>> textureCache;
+			std::map<std::string, std::string> textureFiles;
 
 			std::mutex sceneMutex;
 			Assimp::Importer importer;

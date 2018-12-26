@@ -24,7 +24,7 @@ void InputController::update(float deltaT) {
 	if (isTurning) {
 		double x, y;
 		glfwGetCursorPos(window, &x, &y);
-		camera->setAngle(static_cast<float>(x), static_cast<float>(y));
+		camera->setAngle(static_cast<float>(x), -static_cast<float>(y));
 		glfwSetCursorPos(window, 0, 0);
 	}
 

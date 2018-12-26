@@ -4,15 +4,30 @@
 #include <vector>
 #include <string>
 
+#include <gli/texture2d.hpp>
+
 namespace Engine {
 	namespace Tools {
 		namespace FileReader {
+			enum ImageType {
+				SPARKLE_IMAGE_DDS = 0x100,
+				SPARKLE_IMAGE_OTHER = 0x010
+			};
+			struct ImageMipLevel {
+				size_t width, height, size;
+			};
 			/**
 			 * \brief ImageFile representation
 			 */
 			struct ImageFile {
-				int width, height, channels;
+				int width, height, channels, mipCount;
+				size_t size;
+				std::vector<ImageMipLevel> mipLevels;
+				ImageType imageFileType;
+
 				unsigned char* imageData;
+
+				gli::texture2d tex;
 
 				/**
 				 * \brief release the bound memory for the image
