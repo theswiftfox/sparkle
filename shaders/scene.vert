@@ -23,8 +23,8 @@ layout(location = 0) out VS_OUT {
 layout(binding=0) uniform UniformBufferObject {
 	mat4 view;
 	mat4 projection;
-	vec3 cameraPos;
-	vec3 lightPos;
+	vec4 cameraPos;
+	vec4 lightPos;
 } ubo;
 
 layout(binding=1) uniform DynamicUniformBufferObject {
@@ -46,7 +46,7 @@ void main() {
 	vs_out.position = posW.xyz;
 
 	vs_out.tangentPos = TBN * posW.xyz;
-	vs_out.tangentViewPos = TBN * ubo.cameraPos;
-	vs_out.tangentLightPos = TBN * ubo.lightPos;
+	vs_out.tangentViewPos = TBN * ubo.cameraPos.xyz;
+	vs_out.tangentLightPos = TBN * ubo.lightPos.xyz;
 
 }

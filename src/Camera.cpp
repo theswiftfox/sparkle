@@ -10,6 +10,7 @@ Camera::Camera(std::shared_ptr<Settings> settings) : cameraPos(0.0f){
 	nearZ = NEAR_Z;
 	farZ = settings->getRenderDistance();
 	projMat = glm::perspective(glm::radians(settings->getFov()), (float)width / (float)height, nearZ, farZ);
+	projMat[1, 1] *= -1.0f;
 	gameSettings = settings;
 }
 

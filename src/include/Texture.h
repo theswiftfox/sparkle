@@ -4,12 +4,14 @@
 #include "VulkanExtension.h"
 
 #include <string>
+#include <assimp/texture.h>
 
 namespace Engine {
 	class Texture {
 	public:
 		Texture(std::string filePath, size_t typeID);
-		Texture(void* data, int width, int height, int channels, size_t typeID);
+		Texture(const aiTexture* tex, size_t typeID, std::string id = "");
+		Texture(void* data, int width, int height, int channels, size_t typeID, std::string id = "");
 		~Texture();
 
 		VkDescriptorImageInfo descriptor() const {
@@ -36,7 +38,8 @@ namespace Engine {
 		VkImageView texImageView;
 		VkSampler texImageSampler;
 
-		void initFromData(void* data, int width, int height, int channles);
+		void initFromData(void* data, int width, int height, int channles, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM, int mipLevels = -1);
+		void initFromData(void* data, VkDeviceSize size, VkFormat imageFormat, int m);
 	};
 }
 

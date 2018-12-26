@@ -47,6 +47,7 @@ Engine::RenderBackend::RenderBackend(GLFWwindow * windowPtr, std::string name, s
 void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withValidation) {
 	enableValidationLayers = withValidation;
 	requiredFeatures.samplerAnisotropy = VK_TRUE;
+	requiredFeatures.textureCompressionBC = VK_TRUE;
 
 	// todo:
 	// * load settings
@@ -172,8 +173,8 @@ void RenderBackend::updateUniforms() {
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
 
-	fubo.cameraPos = pCamera->getPosition();
-	fubo.lightPos = glm::vec3(300.0f, 1000.0f, 800.0f);
+	fubo.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
+	fubo.lightPos = glm::vec4(110.0f, 350.0f, -45.0f, 0.0f);
 
 	ubo.cameraPos = fubo.cameraPos;
 	ubo.lightPos = fubo.lightPos;
@@ -186,6 +187,8 @@ void RenderBackend::updateUniforms() {
 
 void RenderBackend::cleanupSwapChain() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+
+	pUi.reset();
 
 	pGraphicsPipeline->cleanup();
 	pGraphicsPipeline.reset();
@@ -225,7 +228,6 @@ void RenderBackend::cleanup() {
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
 	pScene.reset();
-	pUi.reset();
 
 	vkDestroyDevice(pVulkanDevice, nullptr);
 
@@ -609,6 +611,8 @@ void RenderBackend::recordDrawCmdBuffers() {
 				sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
 				sets.push_back(mesh->getMaterial()->getDescriptorSet());
 				if (pCamera) {
+					auto pc = mesh->getMaterial()->getUniforms();
+					vkCmdPushConstants(commandBuffers[i], pGraphicsPipeline->getPipelineLayoutPtr(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
 					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 				}
@@ -719,7 +723,7 @@ Geometry::Mesh::BufferOffset RenderBackend::uploadMeshGPU(const Geometry::Mesh* 
 	const auto indSize = mesh->indices.size() * sizeof(uint32_t);
 	const auto totalVertSize = vertSize + lastVertexOffset;
 	const auto totalIndexSize = indSize + lastIndexOffset;
-	if (totalVertSize + totalIndexSize > maxVertexSize + maxIndexSize) {
+	if (totalVertSize > maxVertexSize || totalIndexSize > maxIndexSize) {
 		increaseDrawBufferSize(2 * totalVertSize, 2 * totalIndexSize);
 	}
 
@@ -1199,6 +1203,9 @@ size_t RenderBackend::checkDeviceRequirements(VkPhysicalDevice device) const {
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, deviceExtensions.data());
 
 	if (requiredFeatures.samplerAnisotropy > feats.samplerAnisotropy) {
+		return DEVICE_NOT_SUITABLE;
+	}
+	if (requiredFeatures.textureCompressionBC > feats.textureCompressionBC) {
 		return DEVICE_NOT_SUITABLE;
 	}
 

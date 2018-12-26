@@ -146,6 +146,14 @@ namespace vkExt {
 			endAndSubmitSingleCommand(cmdBuff, pool, queue);
 		}
 
+		void copyBufferToImage(VkCommandPool pool, VkQueue queue, VkImage image, uint32_t regionCount, VkBufferImageCopy* pRegions) {
+			assert(pRegions != nullptr);
+			assert(regionCount > 0);
+			const auto cmdBuff = beginSingleCommand(pool);
+				vkCmdCopyBufferToImage(cmdBuff, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
+			endAndSubmitSingleCommand(cmdBuff, pool, queue);
+		}
+
 		VkResult flush() const {
 			assert(memory);
 			VkMappedMemoryRange mappedRange = {

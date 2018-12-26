@@ -2,7 +2,29 @@
 
 #include "Application.h"
 
-Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures) {
+
+Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular) {
+	uniforms.features = 0x0;
+	uniforms.specular = specular;
+	uniforms.roughness = 0.0f;
+	uniforms.metallic = 0.0f;
+	initTextureMaterial(textures);
+}
+
+Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular, float roughness, float metallic) {
+	uniforms.roughness = roughness;
+	uniforms.metallic = metallic;
+	uniforms.specular = specular;
+	uniforms.features = SPARKLE_MAT_PBR;
+	initTextureMaterial(textures);
+}
+
+Engine::Material::MaterialUniforms Engine::Material::getUniforms() const {
+	return uniforms;
+}
+
+
+void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>> textures) {
 	for (const auto& tex : textures) {
 		this->textures[tex->type()] = tex; // todo: maybe use a vec to allow multiple of the same type
 	}
@@ -95,6 +117,7 @@ void Engine::Material::updateDescriptorSets()
 			nullptr
 		};
 		writes.push_back(write);
+		uniforms.features |= SPARKLE_MAT_NORMAL_MAP;
 	}
 
 	if (writes.size() > 0) {

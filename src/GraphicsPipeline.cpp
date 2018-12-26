@@ -1,6 +1,7 @@
 #include "GraphicsPipeline.h"
 #include "Application.h"
 #include "Geometry.h"
+#include "Material.h"
 
 #include <vulkan/vulkan.h>
 #include <VulkanExtension.h>
@@ -212,10 +213,17 @@ void GraphicsPipeline::initPipeline()
 	updateDescriptorSets();
 
 	VkDescriptorSetLayout descLayouts[] = { pDescriptorSetLayout, renderer->getMaterialDescriptorSetLayout() };
+
+	std::array<VkPushConstantRange, 1> pushConstantRanges = {
+		{ VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Material::MaterialUniforms) }
+	};
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 2;
 	pipelineLayoutInfo.pSetLayouts = descLayouts;
+	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
+	pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
 
 	VK_THROW_ON_ERROR(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pPipelineLayout), "PipelineLayout creation failed!");
 

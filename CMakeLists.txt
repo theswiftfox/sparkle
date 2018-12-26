@@ -34,10 +34,12 @@ add_subdirectory(3rdParty/glfw)
 #set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 #add_subdirectory(3rdParty/assimp)
 
+# on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
 
 include_directories("${CMAKE_SOURCE_DIR}/src/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/gli")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glm")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
@@ -60,6 +62,7 @@ set(SRC
 	src/main.cpp
 	src/GraphicsPipeline.cpp
 	src/InputController.cpp
+	src/Lights.cpp
 	src/Material.cpp
 	src/RenderBackend.cpp
 	src/Shader.cpp
@@ -80,6 +83,7 @@ set(HDR
 	src/include/Geometry.h
 	src/include/GraphicsPipeline.h
 	src/include/InputController.h
+	src/include/Lights.h
 	src/include/Material.h
 	src/include/RenderBackend.h
 	src/include/Shader.h
@@ -96,6 +100,9 @@ set(SHADERS
 
 set(ASSETS
 	assets/settings.ini
+	assets/materials/default/diff.png
+	assets/materials/default/spec.png
+#	assets/sponza/sponza.gltf
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
