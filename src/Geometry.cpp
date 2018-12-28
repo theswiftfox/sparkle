@@ -75,10 +75,13 @@ const std::vector<std::shared_ptr<Node>> Scene::getRenderableScene() {
 }
 
 void Scene::cleanup() {
+	for (auto node : drawableSceneCache) {
+		node->getMaterial()->cleanup();
+	}
 	root.reset();
 
 	for (auto& tex : textureCache) {
-		tex.reset();
+		tex->cleanup();
 	}
 
 	textureCache.clear();
@@ -239,7 +242,9 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 			auto aiMat = scene->mMaterials[aiMeshData->mMaterialIndex];
 			auto textures = loadMaterialTextures(aiMat, aiTextureType_DIFFUSE, TEX_TYPE_DIFFUSE);
 			auto spec = loadMaterialTextures(aiMat, aiTextureType_SPECULAR, TEX_TYPE_SPECULAR);
-			auto norm = loadMaterialTextures(aiMat, aiTextureType_NORMALS, TEX_TYPE_NORMAL);
+			auto norm = loadMaterialTextures(aiMat, aiTextureType_HEIGHT, TEX_TYPE_NORMAL);
+			auto rough = loadMaterialTextures(aiMat, aiTextureType_SHININESS, TEX_TYPE_ROUGHNESS);
+			auto metal = loadMaterialTextures(aiMat, aiTextureType_AMBIENT, TEX_TYPE_METALLIC);
 
 			if (textures.empty()) { // workaround for current blender export error - should be fixed when using own level format!
 				auto matName = std::string(aiMat->GetName().C_Str());
@@ -273,30 +278,16 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 			}
 			textures.insert(textures.end(), spec.begin(), spec.end());
 			textures.insert(textures.end(), norm.begin(), norm.end());
+			textures.insert(textures.end(), rough.begin(), rough.end());
+			textures.insert(textures.end(), metal.begin(), metal.end());
 
 			float specular;
 			if (aiGetMaterialFloat(aiMat, AI_MATKEY_REFLECTIVITY, &specular) != AI_SUCCESS) {
 				specular = 0.5f;
 			}
 
-			float roughness;
-			bool roughnessFound = aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness) == AI_SUCCESS;
-			if (!roughnessFound) {
-				roughness = 0.5f;
-			}
-			float metallic;
-			bool metallicFound = aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic) == AI_SUCCESS;
-			if (!metallicFound) {
-				metallic = 0.0f;
-			}
-			// TODO: support AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR
+			material = std::make_shared<Material>(textures, specular);
 
-			if (roughnessFound || metallicFound) { // pbr!
-				material = std::make_shared<Material>(textures, specular, roughness, metallic);
-			}
-			else {
-				material = std::make_shared<Material>(textures, specular);
-			}
 		}
 		
 		auto nodeTransform = node->mTransformation;
@@ -325,14 +316,14 @@ void Scene::loadFromFile(const std::string& fileName) {
 			std::lock_guard<std::mutex> lock(sceneMutex);
 			importer.SetProgressHandler(uiHandle.get());
 			scenePtr = importer.ReadFile(fileName,
-				aiProcess_GenNormals |
-				//	aiProcess_CalcTangentSpace | 
+				// aiProcess_GenNormals |
+				// aiProcess_CalcTangentSpace | 
 				aiProcess_JoinIdenticalVertices |
 				aiProcess_Triangulate |
-				aiProcess_FlipUVs |
+				// aiProcess_FlipUVs |
 				aiProcess_FindDegenerates |
 				aiProcess_SortByPType |
-				//	aiProcess_PreTransformVertices |
+				// aiProcess_PreTransformVertices |
 				0
 			);
 		}

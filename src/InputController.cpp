@@ -4,6 +4,8 @@
 #include <GLFW/glfw3native.h>  
 #include <imgui/imgui.h>
 
+#include "Application.h"
+
 void InputController::glfwCallback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
@@ -16,6 +18,19 @@ void InputController::glfwCallback(GLFWwindow* window, int button, int action, i
 	}
 	if (action == GLFW_PRESS && button >= 0 && button < mouseWasPressed.size()) {
 		mouseWasPressed[button] = true;
+	}
+}
+
+void InputController::glfwKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (key == GLFW_KEY_F5) {
+		if (action == GLFW_RELEASE) {
+			Engine::App::getHandle().getRenderBackend()->reloadShaders();
+		}
+	}
+	if (key == GLFW_KEY_F3) {
+		if (action == GLFW_RELEASE) {
+			Engine::App::getHandle().getRenderBackend()->getUiHandle()->toggleOptions();
+		}
 	}
 }
 
@@ -85,5 +100,9 @@ void InputController::init() {
 	auto mouseClicked = [](GLFWwindow* w, int b, int a, int m) {
 		static_cast<InputController*>(glfwGetWindowUserPointer(w))->glfwCallback(w, b, a, m);
 	};
+	auto keyPressed = [](GLFWwindow* w, int k, int s, int a, int m) {
+		static_cast<InputController*>(glfwGetWindowUserPointer(w))->glfwKeyCallback(w, k, s, a, m);
+	};
 	glfwSetMouseButtonCallback(window, mouseClicked);
+	glfwSetKeyCallback(window, keyPressed);
 }

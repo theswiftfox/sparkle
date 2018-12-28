@@ -9,14 +9,18 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
-#define TEX_TYPE_DIFFUSE 0
-#define TEX_TYPE_SPECULAR 1
-#define TEX_TYPE_NORMAL 2
+#define TEX_TYPE_DIFFUSE 0x0
+#define TEX_TYPE_SPECULAR 0x1
+#define TEX_TYPE_NORMAL 0x2
+#define TEX_TYPE_ROUGHNESS 0x3
+#define TEX_TYPE_METALLIC 0x4
 
 #define TEX_BINDING_OFFSET 0
 #define BINDING_DIFFUSE 0
 #define BINDING_SPECULAR 1
 #define BINDING_NORMAL 2
+#define BINDING_ROUGHNESS 3
+#define BINDING_METALLIC 4
 
 namespace Engine {
 	enum MaterialFeatureFlags {
@@ -29,8 +33,6 @@ namespace Engine {
 		struct MaterialUniforms {
 			MaterialFeatures features;
 			float specular;
-			float roughness;
-			float metallic;
 		};
 
 		Material(std::vector<std::shared_ptr<Texture>> textures, float specular);
@@ -43,6 +45,8 @@ namespace Engine {
 
 		void updateDescriptorSets();
 
+		void cleanup();
+
 	private:
 		std::map<size_t, std::shared_ptr<Texture>> textures;
 
@@ -51,6 +55,8 @@ namespace Engine {
 		VkDescriptorSet pDescriptorSet;
 
 		MaterialUniforms uniforms;
+
+		bool initialized = false;
 
 		void initTextureMaterial(std::vector<std::shared_ptr<Texture>> textures);
 	};

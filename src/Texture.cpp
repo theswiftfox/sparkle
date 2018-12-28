@@ -109,7 +109,8 @@ void Texture::initFromData(void* data, VkDeviceSize s, VkFormat format, int m) {
 	}
 
 }
-Texture::~Texture() {
+void Texture::cleanup() {
 	auto& context = App::getHandle().getRenderBackend();
 	vkDestroySampler(context->getDevice(), texImageSampler, nullptr);
+	texMemory->free(context->getDevice());
 }

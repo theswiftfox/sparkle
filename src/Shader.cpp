@@ -73,7 +73,7 @@ void ShaderProgram::updateUniformBufferObject(const UBO& ubo)
 	pUniformBuffer.unmap();
 }
 
-void ShaderProgram::updateFragmentShaderSettings(const FragmentShaderUniforms& sets) {
+void ShaderProgram::updateFragmentShaderUniforms(const FragmentShaderUniforms& sets) {
 	pUniformBuffer.map(fragSettingsOffset);
 	pUniformBuffer.copyTo(&sets, sizeof(sets));
 	pUniformBuffer.unmap();
