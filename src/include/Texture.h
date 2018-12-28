@@ -12,7 +12,7 @@ namespace Engine {
 		Texture(std::string filePath, size_t typeID);
 		Texture(const aiTexture* tex, size_t typeID, std::string id = "");
 		Texture(void* data, int width, int height, int channels, size_t typeID, std::string id = "");
-		~Texture();
+		void cleanup();
 
 		VkDescriptorImageInfo descriptor() const {
 			const VkDescriptorImageInfo info = {

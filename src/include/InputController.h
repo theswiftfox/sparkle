@@ -18,6 +18,7 @@ public:
 	void init();
 
 	void glfwCallback(GLFWwindow* window, int button, int action, int mods);
+	void glfwKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	bool handlingMouse() const { return isTurning; }
 
 private:

@@ -8,16 +8,18 @@
 #include <string>
 #include <vector>
 
+#include "Lights.h"
+
 namespace Engine {
 	namespace Shaders {
+
+#define SPARKLE_SHADER_LIMIT_LIGHTS 9
 
 		class App;
 
 		typedef struct UniformBufferObject {
 			glm::mat4 view;
 			glm::mat4 projection;
-			glm::vec4 cameraPos;
-			glm::vec4 lightPos;
 		} UBO;
 
 		typedef struct InstancedUniformBufferObject {
@@ -26,7 +28,11 @@ namespace Engine {
 
 		typedef struct FragmentShaderUniforms {
 			glm::vec4 cameraPos;
-			glm::vec4 lightPos;
+			uint32_t numLights;
+			float exposure = 1.0f;
+			float gamma = 2.2f;
+			float _pad;
+			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
 		} FragmentShaderUniforms;
 
 		class ShaderProgram {		
@@ -39,7 +45,7 @@ namespace Engine {
 
 			void updateUniformBufferObject(const UBO& ubo);
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
-			void updateFragmentShaderSettings(const FragmentShaderUniforms& sets);
+			void updateFragmentShaderUniforms(const FragmentShaderUniforms& sets);
 
 			auto getDynamicAlignment() const { return dUboAlignment; }
 

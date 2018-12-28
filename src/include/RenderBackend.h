@@ -55,6 +55,7 @@ namespace Engine {
 		void updateUiData(GUI::FrameData uiData);
 
 		void cleanup();
+		void reloadShaders();
 
 		Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
@@ -93,6 +94,8 @@ namespace Engine {
 		std::shared_ptr<Camera> pCamera = nullptr;
 		std::shared_ptr<Geometry::Scene> pScene = nullptr;
 		std::shared_ptr<GUI> pUi = nullptr;
+
+		Shaders::FragmentShaderUniforms fragmentUBO;
 
 		std::future<void> levelLoadFuture;
 
@@ -147,7 +150,7 @@ namespace Engine {
 		std::vector<vkExt::SharedMemory*> depthImageMemory;
 
 		VkDescriptorSetLayout pMaterialDescriptorSetLayout;
-		size_t materialTextureLimit = 3; // one diffuse, spec and normal
+		size_t materialTextureLimit = 5; // diffuse, spec, normal, roughness, metallic 
 
 		VkPhysicalDeviceFeatures requiredFeatures = { };
 
@@ -170,6 +173,7 @@ namespace Engine {
 		std::vector<VkImage> deviceCreatedImages;
 		std::vector<VkImageView> deviceCreatedImageViews;
 
+		bool updateGeometry = true;
 
 		void setupVulkan();
 
@@ -190,16 +194,17 @@ namespace Engine {
 		void createDrawBuffer();
 		void createCommandBuffers();
 		void recordDrawCmdBuffers();
-		void recordUiCmdBuffers(size_t imageIndex);
 		void createSyncObjects();
 		void setupGui();
+		void setupLights();
 		void increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSize newIndexLimit);
 		void cleanupSwapChain();
 		void recreateSwapChain();
 		void destroyCommandBuffers();
 		void recreateDrawCmdBuffers();
-		void recreateUiCmdBuffers(size_t imageIndex);
 		void recreateAllCmdBuffers();
+
+		void initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type = Lights::LTypeFlags::SPARKLE_LIGHT_TYPE_POINT);
 
 		Vulkan::RequiredQueueFamilyIndices getQueueFamilies(VkPhysicalDevice device) const;
 		Vulkan::SwapChainSupportInfo getSwapChainSupportInfo(VkPhysicalDevice device) const;

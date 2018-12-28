@@ -21,6 +21,10 @@ float Camera::farPlane() const {
 	return farZ;
 }
 
+bool Camera::changed() const {
+	return hasChanged;
+}
+
 void Camera::updateAspect(float aspect) {
 	projMat = glm::perspective(glm::radians(gameSettings->getFov()), aspect, NEAR_Z, gameSettings->getRenderDistance());
 }
@@ -65,32 +69,36 @@ void Camera::update(float deltaT) {
 		cos(-vAngle) * cos(-hAngle)
 	);
 
-	hRotation = glm::rotate(glm::mat4(1.f), hAngle, glm::vec3(0, 1, 0));
-
 	viewMat = glm::lookAt(
 		cameraPos,
 		cameraPos + direction, //
 		glm::vec3(0, 1, 0)
 	);
 	lasthAngle = hAngle;
+
+	hasChanged = false;
 }
 
 
 void Camera::moveForward(float deltaT) {
 	cameraPos = cameraPos + -playerSpeed * deltaT * getFrontWorld();
+	hasChanged = true;
 }
 
 
 void Camera::moveBackward(float deltaT) {
 	cameraPos = cameraPos + playerSpeed * deltaT * getFrontWorld();
+	hasChanged = true;
 }
 
 void Camera::moveRight(float deltaT) {
 	cameraPos = cameraPos + playerSpeed * deltaT * getRightWorld();
+	hasChanged = true;
 }
 
 void Camera::moveLeft(float deltaT) {
 	cameraPos = cameraPos + -playerSpeed * deltaT * getRightWorld();
+	hasChanged = true;
 }
 
 void Camera::setAngle(float x, float y) {
@@ -98,4 +106,5 @@ void Camera::setAngle(float x, float y) {
 	vAngle -= y * MOUSE_SPEED;
 	if (vAngle <= -1.5) vAngle = -1.5;
 	if (vAngle >= 1.5) vAngle = 1.5;
+	hasChanged = true;
 }

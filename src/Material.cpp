@@ -6,16 +6,6 @@
 Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular) {
 	uniforms.features = 0x0;
 	uniforms.specular = specular;
-	uniforms.roughness = 0.0f;
-	uniforms.metallic = 0.0f;
-	initTextureMaterial(textures);
-}
-
-Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular, float roughness, float metallic) {
-	uniforms.roughness = roughness;
-	uniforms.metallic = metallic;
-	uniforms.specular = specular;
-	uniforms.features = SPARKLE_MAT_PBR;
 	initTextureMaterial(textures);
 }
 
@@ -23,6 +13,12 @@ Engine::Material::MaterialUniforms Engine::Material::getUniforms() const {
 	return uniforms;
 }
 
+void Engine::Material::cleanup() {
+	if (!initialized) return;
+	const auto device = App::getHandle().getRenderBackend()->getDevice();
+
+	vkDestroyDescriptorPool(device, pDescriptorPool, nullptr);
+}
 
 void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>> textures) {
 	for (const auto& tex : textures) {
@@ -64,6 +60,8 @@ void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>>
 	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &pDescriptorSet), "DescriptorSet allocation failed!");
 
 	updateDescriptorSets();
+
+	initialized = true;
 }
 
 void Engine::Material::updateDescriptorSets()
@@ -118,6 +116,40 @@ void Engine::Material::updateDescriptorSets()
 		};
 		writes.push_back(write);
 		uniforms.features |= SPARKLE_MAT_NORMAL_MAP;
+	}
+	if (textures.find(TEX_TYPE_ROUGHNESS) != textures.end()) {
+		auto descriptor = textures[TEX_TYPE_ROUGHNESS]->descriptor();
+		VkWriteDescriptorSet write = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			pDescriptorSet,
+			TEX_BINDING_OFFSET + BINDING_ROUGHNESS,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			&descriptor,
+			nullptr,
+			nullptr
+		};
+		writes.push_back(write);
+		uniforms.features |= SPARKLE_MAT_PBR;
+	}
+	if (textures.find(TEX_TYPE_METALLIC) != textures.end()) {
+		auto descriptor = textures[TEX_TYPE_METALLIC]->descriptor();
+		VkWriteDescriptorSet write = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			pDescriptorSet,
+			TEX_BINDING_OFFSET + BINDING_METALLIC,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			&descriptor,
+			nullptr,
+			nullptr
+		};
+		writes.push_back(write);
+		uniforms.features |= SPARKLE_MAT_PBR;
 	}
 
 	if (writes.size() > 0) {

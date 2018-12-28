@@ -96,8 +96,10 @@ void App::mainLoop() {
 		io.MousePos = ImVec2((float)mx, (float)my);
 
 		pInputController->update((float)deltaT);
-		pCamera->update((float)deltaT);
-		pRenderer->updateUniforms();
+		if (pCamera->changed()) {
+			pCamera->update((float)deltaT);
+			pRenderer->updateUniforms();
+		}
 		pRenderer->updateUiData(frameData);
 		pRenderer->draw(deltaT);
 
@@ -106,8 +108,6 @@ void App::mainLoop() {
 }
 
 void App::cleanup() {
-	pScene->cleanup();
-
 	pRenderer->cleanup();
 
 	ImGui::DestroyContext();

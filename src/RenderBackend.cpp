@@ -56,8 +56,10 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 	viewportHeight = height;
 
 	setupVulkan();
+	setupLights();
 
 	pScene->loadFromFile(settings->getLevelPath());
+	updateGeometry = true;
 }
 
 void RenderBackend::draw(double deltaT) {
@@ -84,6 +86,7 @@ void RenderBackend::draw(double deltaT) {
 #endif
 
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		if (result == VK_NOT_READY) return;
 		throw std::runtime_error("Aquisation of SwapChain Image failed");
 	}
 
@@ -156,7 +159,8 @@ void RenderBackend::draw(double deltaT) {
 	}
 
 	frameCounter = (frameCounter + 1) % MAX_FRAMES_IN_FLIGHT;
-	// vkDeviceWaitIdle(pVulkanDevice);
+	// TODO: wait for the render to finish here until i figure out the issue with laggy mouse cursor when using tripple buffering
+	vkDeviceWaitIdle(pVulkanDevice);
 }
 
 void RenderBackend::updateUiData(GUI::FrameData uiData) {
@@ -168,26 +172,29 @@ void RenderBackend::updateUniforms() {
 	glfwGetWindowSize(pWindow, &width, &height);
 
 	Shaders::UBO ubo = {};
-	Shaders::FragmentShaderUniforms fubo = {};
 
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
 
-	fubo.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
-	fubo.lightPos = glm::vec4(110.0f, 350.0f, -45.0f, 0.0f);
-
-	ubo.cameraPos = fubo.cameraPos;
-	ubo.lightPos = fubo.lightPos;
+	fragmentUBO.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
+	fragmentUBO.gamma = pUi->getGamma();
+	fragmentUBO.exposure = pUi->getExposure();
 
 	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
+
+	vkDeviceWaitIdle(pVulkanDevice);
 	shaderProg->updateUniformBufferObject(ubo);
-	shaderProg->updateFragmentShaderSettings(fubo);
-	shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+	shaderProg->updateFragmentShaderUniforms(fragmentUBO);
+	if (updateGeometry) {
+		shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+		updateGeometry = false;
+	}
 }
 
 void RenderBackend::cleanupSwapChain() {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-
+	
+	pUi->cleanup();
 	pUi.reset();
 
 	pGraphicsPipeline->cleanup();
@@ -206,12 +213,18 @@ void RenderBackend::cleanupSwapChain() {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
 		vkDestroySemaphore(pVulkanDevice, semRenderFinished[i], nullptr);
 		vkDestroySemaphore(pVulkanDevice, semImageAvailable[i], nullptr);
+		vkDestroySemaphore(pVulkanDevice, semUiFinished[i], nullptr);
 		vkDestroyFence(pVulkanDevice, inFlightFences[i], nullptr);
 	}
 }
 
 void RenderBackend::cleanup() {
+	vkDeviceWaitIdle(pVulkanDevice);
+
+	pScene->cleanup();
+
 	cleanupSwapChain();
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()), uiCommandBuffers.data());
 
 	pDrawBuffer.destroy(true); // cleanup vertex buffer and memory
 
@@ -223,8 +236,6 @@ void RenderBackend::cleanup() {
 		vkDestroyImage(pVulkanDevice, image, nullptr);
 	}
 
-	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()), uiCommandBuffers.data());
-	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
 	pScene.reset();
@@ -363,6 +374,7 @@ void RenderBackend::recreateSwapChain() {
 
 	createSyncObjects();
 	setupGui();
+	updateGeometry = true;
 }
 
 void RenderBackend::createSwapChain(VkSwapchainKHR oldSwapChain) {
@@ -528,6 +540,10 @@ void RenderBackend::recreateAllCmdBuffers() {
 	recreateDrawCmdBuffers();
 }
 
+void RenderBackend::reloadShaders() {
+	recreateSwapChain();
+}
+
 void RenderBackend::createCommandBuffers() {
 	commandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
 	uiCommandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
@@ -646,6 +662,48 @@ void RenderBackend::createSyncObjects() {
 		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semUiFinished[i]), "Synchronization obejct creation failed!");
 		VK_THROW_ON_ERROR(vkCreateFence(pVulkanDevice, &fenceInfo, nullptr, &inFlightFences[i]), "Synchronization obejct creation failed!");
 	}
+}
+
+void RenderBackend::initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type) {
+	light->mVec = glm::vec4(pos, 0.0f);
+	light->mColor = glm::vec4(col, 0.0f);
+	light->mRadius = radius;
+}
+
+void RenderBackend::setupLights() {
+	// light setup for sponza taken from https://github.com/SaschaWillems/VulkanSponza
+	// todo -> lights from level loader
+	std::array<glm::vec3, 5> lightColors;
+	lightColors[0] = glm::vec3(100.0f, 70.0f, 70.0f);
+	lightColors[1] = glm::vec3(100.0f, 0.0f, 0.0f);
+	lightColors[2] = glm::vec3(0.0f, 0.0f, 100.0f);
+	lightColors[3] = glm::vec3(0.0f, 100.0f, 0.0f);
+	lightColors[4] = glm::vec3(100.0f, 70.0f, 70.0f);
+
+	for (int32_t i = 0; i < lightColors.size(); i++)
+	{
+		initLight(&fragmentUBO.lights[i], glm::vec4((-78.0f + (float)i * 33.0f), 10.0f, -4.3f, 0.0f), lightColors[i], 120.0f);
+	}
+
+	// Fire bowls
+	initLight(&fragmentUBO.lights[5], { 48.75f, 16.0f, -21.8f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
+	initLight(&fragmentUBO.lights[6], { 48.75f, 16.0f,  15.4f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
+	initLight(&fragmentUBO.lights[7], { -62.0f, 16.0f, -21.8f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
+	initLight(&fragmentUBO.lights[8], { -62.0f, 16.0f,  15.4f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
+
+	//initLight(&fragmentUBO.lights[8], { 120.0f, 20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	//initLight(&fragmentUBO.lights[9], { 120.0f, 20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	//initLight(&fragmentUBO.lights[10], { -110.0f, 20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	//initLight(&fragmentUBO.lights[11], { -110.0f, 20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+
+	// Lion eyes
+	//initLight(&fragmentUBO.lights[12], { -122.0f, 18.0f, -3.2f }, { 1.0f, 0.3f, 0.3f }, 25.0f);
+	//initLight(&fragmentUBO.lights[13], { -122.0f, 18.0f,  3.2f }, { 0.3f, 1.0f, 0.3f }, 25.0f);
+
+	//initLight(&fragmentUBO.lights[14], { 135.0f, 18.0f, -3.2f }, { 0.3f, 0.3f, 1.0f }, 25.0f);
+	//initLight(&fragmentUBO.lights[15], { 135.0f, 18.0f,  3.2f }, { 1.0f, 1.0f, 0.3f }, 25.0f);
+
+	fragmentUBO.numLights = 9;
 }
 
 void RenderBackend::setupGui()
@@ -1160,9 +1218,9 @@ VkPresentModeKHR RenderBackend::getBestPresentMode(const std::vector<VkPresentMo
 		if (mode == VK_PRESENT_MODE_MAILBOX_KHR) { // tripple buffering
 			return mode;
 		}
-		else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may have tearing
-			bestMode = mode;
-		}
+		//else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may have tearing
+		//	bestMode = mode;
+		//}
 	}
 
 	return bestMode;

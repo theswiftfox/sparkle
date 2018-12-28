@@ -30,19 +30,19 @@ GUI::GUI() {
 	assimpProgress = ProgressData();
 }
 
-GUI::~GUI() {
-	vertexBuffer.destroy(true);
-	indexBuffer.destroy(true);
-	delete(vertexMemory);
-	delete(indexMemory);
-
-	fontTex.reset();
-	vkDestroyPipelineCache(device, pipelineCache, nullptr);
-	vkDestroyPipeline(device, pipeline, nullptr);
-	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-}
+//GUI::~GUI() {
+//	vertexBuffer.destroy(true);
+//	indexBuffer.destroy(true);
+//	delete(vertexMemory);
+//	delete(indexMemory);
+//
+//	fontTex.reset();
+//	vkDestroyPipelineCache(device, pipelineCache, nullptr);
+//	vkDestroyPipeline(device, pipeline, nullptr);
+//	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+//	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+//	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+//}
 
 void GUI::init(float width, float height, VkRenderPass renderPass) {
 	windowWidth = (float)width;
@@ -297,6 +297,16 @@ void GUI::updateFrame(GUI::FrameData frameData) {
 		else {
 			ImGui::TextUnformatted("Loading level file..");
 		}
+		ImGui::End();
+	}
+
+	if (showOptions) {
+		ImGui::SetNextWindowPos(ImVec2(10, windowHeight - 100));
+		int flags =	ImGuiWindowFlags_AlwaysAutoResize |
+					ImGuiWindowFlags_NoMove;
+		ImGui::Begin("Settings", &showOptions, flags);
+		ImGui::SliderFloat("Exposure", &exposure, 0.1f, 10.0f, "%.1f");
+		ImGui::SliderFloat("Gamma", &gamma, 0.5f, 4.0f, "%.1f");
 		ImGui::End();
 	}
 

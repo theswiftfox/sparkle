@@ -4,16 +4,6 @@
 #define NEAR_Z 0.1f
 
 #define PLAYER_DEFAULT_SPEED 30.0f		// base movement speed
-#define PLAYER_MAX_SPEED 90.0f			// maximum run speed for character
-#define PLAYER_SPEED_DAMPENING 20.0f	// dampening factor for movement penalty
-#define PLAYER_SIDESTEP_FACTOR 0.6f		// factor for sideways character movement
-#define PLAYER_REVERSING_FACTOR 0.4f	// factor for backwards character movement
-#define PLAYER_VELOCITY_TRESHOLD 10.0f	// minimum total absolute velocity on x and y for movementspeed increase
-#define PLAYER_HEIGHT 10.0f
-
-#define PLAYER_JUMP_POWER 60.0f
-#define MIN_FALL_SPEED 30.0f
-#define MAX_FALL_SPEED 60.0f
 
 #define MOUSE_SPEED 0.00390625f
 
@@ -49,6 +39,11 @@ public:
 	float nearPlane() const;
 	float farPlane() const;
 
+	/*
+	* @Brief: Indicates if the Camera has changed since the last call to update
+	*/
+	bool changed() const;
+
 private:
 	std::shared_ptr<Engine::Settings> gameSettings;
 
@@ -59,16 +54,13 @@ private:
 	float nearZ;
 	float farZ;
 
+	bool hasChanged = true;
+
 	glm::vec3 cameraPos;
-	glm::mat4 hRotation;
 	glm::mat4 viewMat;
 	glm::mat4 projMat;
 	
-	bool isCrouching = false;
-	bool falling = false;
-
 	float playerSpeed = PLAYER_DEFAULT_SPEED;
-	float fallSpeed = MIN_FALL_SPEED;
 };
 
 #endif
