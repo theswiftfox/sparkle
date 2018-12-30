@@ -671,7 +671,7 @@ void RenderBackend::initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col
 }
 
 void RenderBackend::setupLights() {
-	// light setup for sponza taken from https://github.com/SaschaWillems/VulkanSponza
+	// light setup for sponza base idea from https://github.com/SaschaWillems/VulkanSponza
 	// todo -> lights from level loader
 	std::array<glm::vec3, 5> lightColors;
 	lightColors[0] = glm::vec3(100.0f, 70.0f, 70.0f);
@@ -690,18 +690,6 @@ void RenderBackend::setupLights() {
 	initLight(&fragmentUBO.lights[6], { 48.75f, 16.0f,  15.4f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
 	initLight(&fragmentUBO.lights[7], { -62.0f, 16.0f, -21.8f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
 	initLight(&fragmentUBO.lights[8], { -62.0f, 16.0f,  15.4f }, { 100.0f, 60.0f, 0.0f }, 45.0f);
-
-	//initLight(&fragmentUBO.lights[8], { 120.0f, 20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
-	//initLight(&fragmentUBO.lights[9], { 120.0f, 20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
-	//initLight(&fragmentUBO.lights[10], { -110.0f, 20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
-	//initLight(&fragmentUBO.lights[11], { -110.0f, 20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
-
-	// Lion eyes
-	//initLight(&fragmentUBO.lights[12], { -122.0f, 18.0f, -3.2f }, { 1.0f, 0.3f, 0.3f }, 25.0f);
-	//initLight(&fragmentUBO.lights[13], { -122.0f, 18.0f,  3.2f }, { 0.3f, 1.0f, 0.3f }, 25.0f);
-
-	//initLight(&fragmentUBO.lights[14], { 135.0f, 18.0f, -3.2f }, { 0.3f, 0.3f, 1.0f }, 25.0f);
-	//initLight(&fragmentUBO.lights[15], { 135.0f, 18.0f,  3.2f }, { 1.0f, 1.0f, 0.3f }, 25.0f);
 
 	fragmentUBO.numLights = 9;
 }

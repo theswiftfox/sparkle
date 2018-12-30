@@ -102,7 +102,6 @@ set(ASSETS
 	assets/settings.ini
 	assets/materials/default/diff.png
 	assets/materials/default/spec.png
-	assets/sponza/sponza.gltf
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})

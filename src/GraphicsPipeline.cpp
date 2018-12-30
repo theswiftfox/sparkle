@@ -48,7 +48,6 @@ void GraphicsPipeline::initPipeline()
 	subpass.pColorAttachments = &colorAttRef;
 	subpass.pDepthStencilAttachment = &depthAttRef;
 
-
 	VkSubpassDependency dependency = {
 		VK_SUBPASS_EXTERNAL,
 		0,
@@ -283,7 +282,7 @@ void GraphicsPipeline::initPipeline()
 
 void GraphicsPipeline::updateDescriptorSets() const
 {
-	auto[uboModel, fragModel] = shader->getDescriptorInfos();
+	const auto[uboModel, fragModel] = shader->getDescriptorInfos();
 
 	std::vector<VkWriteDescriptorSet> write;
 
