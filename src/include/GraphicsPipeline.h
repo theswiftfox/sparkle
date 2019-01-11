@@ -9,6 +9,23 @@ namespace Engine
 	class GraphicsPipeline
 	{
 	public:
+		struct FrameBufferAtt {
+			VkImage image;
+			VkImageView view;
+			VkFormat format;
+			VkDeviceMemory memory;
+		};
+		struct FrameBuffer {
+			int32_t width;
+			int32_t height;
+			VkFramebuffer framebuffer;
+			FrameBufferAtt position;
+			FrameBufferAtt normal;
+			FrameBufferAtt pbrValues;
+			FrameBufferAtt depth;
+			VkRenderPass renderPass;
+		};
+
 		GraphicsPipeline(VkViewport targetViewport) : viewport(targetViewport) {
 			initPipeline();
 		}

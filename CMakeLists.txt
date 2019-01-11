@@ -96,6 +96,8 @@ set(SHADERS
 	shaders/scene.vert
 	shaders/ui.frag
 	shaders/ui.vert
+	shaders/deferred.vert.hlsl
+	shaders/deferred.frag.hlsl
 )
 
 set(ASSETS
@@ -119,7 +121,7 @@ foreach(SHADER ${SHADERS})
 
 	add_custom_command(
 		OUTPUT ${output_file}
-		COMMAND ${GLSLANG_VALIDATOR} -w -V ${CMAKE_SOURCE_DIR}/${SHADER} -o ${output_file}
+		COMMAND ${GLSLANG_VALIDATOR} -e main -w -V ${CMAKE_SOURCE_DIR}/${SHADER} -o ${output_file}
 		DEPENDS ${CMAKE_SOURCE_DIR}/${SHADER}
 		COMMENT "Compiling shader ${output_file}"
 	)

@@ -166,7 +166,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = static_cast<uint32_t>(props.limits.minUniformBufferOffsetAlignment);
 
-	dUboAlignment = static_cast<uint32_t>(sizeof(glm::mat4));
+	dUboAlignment = static_cast<uint32_t>(sizeof(glm::mat4)) * 2;
 	if (alignment > 0) {
 		dUboAlignment = (dUboAlignment + alignment - 1) & ~(alignment - 1);
 	}
@@ -187,8 +187,11 @@ void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shar
 		createDynamicBuffer(meshes.size());
 	}
 	for (auto i = 0; i < meshes.size(); ++i) {
+		const auto modelMat = meshes[i]->accumModel();
 		const auto model = (glm::mat4*)((uint64_t)dynamicUboData.model + i * dUboAlignment);
-		*model = glm::mat4(meshes[i]->accumModel());
+		*model = glm::mat4(modelMat);
+		const auto normal = model + sizeof(glm::mat4);
+		*normal = glm::transpose(glm::inverse(modelMat));
 	}
 	pDynamicBuffer.copyTo(dynamicUboData.model, dynamicUboDataSize);
 	pDynamicBuffer.flush();
