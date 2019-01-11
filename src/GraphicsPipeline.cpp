@@ -72,7 +72,9 @@ void GraphicsPipeline::initPipeline()
 	VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
 
 	// create shader modules
-	shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
+	//shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
+	shader = std::make_unique<Shaders::ShaderProgram>("shaders/deferred.vert.hlsl.spv", "", "", "shaders/deferred.frag.hlsl.spv", 0);
+
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages = shader->getShaderStages();
 
