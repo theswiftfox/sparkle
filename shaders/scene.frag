@@ -124,15 +124,15 @@ vec3 BRDF(vec3 V, vec3 N, vec3 albedo, vec3 F0, Light light, float metallic, flo
 	L = normalize(L);
 	vec3 H = normalize (V + L);
 
-	float dotNV = abs(dot(N, V));//, 0.0, 1.0);
-	float dotNL = abs(dot(N, L));//, 0.0, 1.0);
-	float dotNH = abs(dot(N, H));//, 0.0, 1.0);
-	float dotHV = abs(dot(L, H));//, 0.0, 1.0);
+	float dotNV = clamp(dot(N, V), 0.0, 1.0);
+	float dotNL = clamp(dot(N, L), 0.0, 1.0);
+	float dotNH = clamp(dot(N, H), 0.0, 1.0);
+	float dotHV = clamp(dot(L, H), 0.0, 1.0);
 
 	vec3 color = vec3(0.0);
 
-//	if (dotNL > 0.0 && dotNV > 0.0)
-//	{
+	if (dotNL > 0.0 && dotNV > 0.0)
+	{
 		// D = Normal distribution
 		float D = NDF(dotNH, roughness); 
 		// G = Geometric shadowing term (Microfacets shadowing)
@@ -150,7 +150,7 @@ vec3 BRDF(vec3 V, vec3 N, vec3 albedo, vec3 F0, Light light, float metallic, flo
 		// only non metals have diffuse lightning -> linear blend with inverse metalness
 		kD *= 1.0 - metallic;
 		color += (kD * albedo / PI + spec) * radiance * dotNL;
-//	}
+	}
 
 	return color;
 }
