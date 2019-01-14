@@ -27,6 +27,7 @@ layout(std140, binding=0) uniform UniformBufferObject {
 
 layout(binding=1) uniform DynamicUniformBufferObject {
 	mat4 model;
+	mat4 normal;
 } dUbo;
 
 void main() {

@@ -73,6 +73,7 @@ void GraphicsPipeline::initPipeline()
 
 	// create shader modules
 	//shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
+	// deferred shaders
 	shader = std::make_unique<Shaders::ShaderProgram>("shaders/deferred.vert.hlsl.spv", "", "", "shaders/deferred.frag.hlsl.spv", 0);
 
 
