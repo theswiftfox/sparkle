@@ -133,13 +133,17 @@ namespace Engine {
 
 		// Synchronization objects
 		std::vector<VkSemaphore> semImageAvailable;
+		std::vector<VkSemaphore> semOffScreenFinished;
 		std::vector<VkSemaphore> semRenderFinished;
 		std::vector<VkSemaphore> semUiFinished;
 		std::vector<VkFence> inFlightFences;
 
 		size_t frameCounter = 0;
 
+		VkCommandBuffer offScreenCmdBuffer;
+
 		std::vector<VkCommandBuffer> commandBuffers;
+		std::vector<VkCommandBuffer> offScreenBuffers;
 		std::vector<VkCommandBuffer> uiCommandBuffers;
 
 		std::vector<VkImage> swapChainImages;
