@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include "Shader.h"
+#include "VulkanExtension.h"
 
 namespace Engine
 {
@@ -10,10 +11,9 @@ namespace Engine
 	{
 	public:
 		struct FrameBufferAtt {
-			VkImage image;
+			vkExt::Image image;
 			VkImageView view;
-			VkFormat format;
-			VkDeviceMemory memory;
+			vkExt::SharedMemory* memory;
 		};
 		struct FrameBuffer {
 			int32_t width;
@@ -61,8 +61,14 @@ namespace Engine
 
 		VkViewport viewport{};
 
+		VkSampler offScreenSampler;
+
 		std::vector<VkFramebuffer> swapChainFramebuffers;
+		std::vector<FrameBuffer> offscreenBuffers;
+		std::vector<FrameBufferAtt> offscreenAttachments;
 
 		std::shared_ptr<Engine::Shaders::ShaderProgram> shader;
+
+		void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt *attachment);
 	};
 }

@@ -283,6 +283,26 @@ void GraphicsPipeline::initPipeline()
 	}
 }
 
+void GraphicsPipeline::initAttachment(VkFormat format, VkImageUsageFlagBits usage, GraphicsPipeline::FrameBufferAtt *attachment) {
+	VkImageAspectFlags aspectMask = 0x0;
+	
+	if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+	if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+
+	assert(aspectMask > 0x0);
+
+	const auto backend = App::getHandle().getRenderBackend();
+	const auto extent = backend->getSwapChainExtent();
+
+	attachment->memory = new vkExt::SharedMemory();
+	backend->createImage2D(extent.width, extent.height, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
+	attachment->view = backend->createImageView2D(attachment->image.image, format, aspectMask);
+}
+
 void GraphicsPipeline::updateDescriptorSets() const
 {
 	const auto[uboModel, fragModel] = shader->getDescriptorInfos();
