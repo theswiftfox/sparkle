@@ -10,7 +10,7 @@ using namespace Engine;
 
 void GraphicsPipeline::initPipeline()
 {
-	auto& renderer = App::getHandle().getRenderBackend();
+	auto renderer = App::getHandle().getRenderBackend();
 	const auto& device = renderer->getDevice();
 
 	VkAttachmentDescription colorAttachment = {};
@@ -72,9 +72,9 @@ void GraphicsPipeline::initPipeline()
 	VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &pRenderPass), "RenderPass creation failed!");
 
 	// create shader modules
-	//shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
+	shader = std::make_unique<Shaders::ShaderProgram>("shaders/scene.vert.spv", "", "", "shaders/scene.frag.spv", 0);
 	// deferred shaders
-	shader = std::make_unique<Shaders::ShaderProgram>("shaders/deferred.vert.hlsl.spv", "", "", "shaders/deferred.frag.hlsl.spv", 0);
+	//shader = std::make_unique<Shaders::ShaderProgram>("shaders/deferred.vert.hlsl.spv", "", "", "shaders/deferred.frag.hlsl.spv", 0);
 
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages = shader->getShaderStages();
@@ -286,10 +286,10 @@ void GraphicsPipeline::initPipeline()
 void GraphicsPipeline::initAttachment(VkFormat format, VkImageUsageFlagBits usage, GraphicsPipeline::FrameBufferAtt *attachment) {
 	VkImageAspectFlags aspectMask = 0x0;
 	
-	if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+	if ((usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
-	if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+	if ((usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
 

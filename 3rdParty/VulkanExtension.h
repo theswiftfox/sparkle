@@ -12,7 +12,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cassert>
-
+#include <cstring>
 #include <iostream>
 
 #define VK_THROW_ON_ERROR(f, msg)				\

@@ -48,7 +48,7 @@ void Texture::initFromData(void* data, int w, int h, int c, VkFormat imageFormat
 }
 
 void Texture::initFromData(void* data, VkDeviceSize s, VkFormat format, int m) {
-	auto& context = App::getHandle().getRenderBackend();
+	auto context = App::getHandle().getRenderBackend();
 
 	vkExt::Buffer staging;
 	vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
@@ -110,7 +110,7 @@ void Texture::initFromData(void* data, VkDeviceSize s, VkFormat format, int m) {
 
 }
 void Texture::cleanup() {
-	auto& context = App::getHandle().getRenderBackend();
+	auto context = App::getHandle().getRenderBackend();
 	vkDestroySampler(context->getDevice(), texImageSampler, nullptr);
 	texMemory->free(context->getDevice());
 }
