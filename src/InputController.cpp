@@ -1,7 +1,16 @@
 #include "InputController.h"
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>  
+#ifdef __WIN32
+	#define GLFW_EXPOSE_NATIVE_WIN32
+#elif __linux__
+	#ifdef USE_WAYLAND
+		#define GLFW_EXPOSE_NATIVE_WAYLAND
+	#else
+		#define GLFW_EXPOSE_NATIVE_X11
+	#endif
+#endif
+
+#include <GLFW/glfw3native.h>
 #include <imgui/imgui.h>
 
 #include "Application.h"
@@ -93,7 +102,11 @@ void InputController::init() {
 	io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
 	io.BackendPlatformName = "inputController";
 
+#ifdef __WIN32
 	io.ImeWindowHandle = (void*)glfwGetWin32Window(window);
+#elif __linux__
+	io.ImeWindowHandle = (void*)glfwGetX11Window(window);
+#endif
 
 	mouseWasPressed.resize(IM_ARRAYSIZE(io.MouseDown));
 	glfwSetWindowUserPointer(window, this);

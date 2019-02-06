@@ -4,13 +4,22 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <assimp/pbrmaterial.h>
+#include <assimp/material.h>
 
 #include <glm/gtc/type_ptr.hpp>
 
 #include <string>
 #include <unordered_map>
-#include <filesystem>
+
+#include <algorithm>
+
+#ifdef __WIN32
+	#include <filesystem>
+	namespace fs = std::filesystem;
+#elif __linux__
+	#include <experimental/filesystem>
+	namespace fs = std::experimental::filesystem;
+#endif
 
 using namespace Engine;
 using namespace Geometry;
@@ -127,6 +136,7 @@ std::vector<std::shared_ptr<Texture>> Scene::loadMaterialTextures(aiMaterial * m
 			else {
 				stdString = std::string(strPtr);
 			}
+			std::replace(stdString.begin(), stdString.end(), '\\', '/');
 			//auto dirOffs = stdString.rfind('/');
 			//dirOffs = dirOffs == std::string::npos ? stdString.rfind('\\') : dirOffs;
 			//if (dirOffs != std::string::npos) {
@@ -347,8 +357,12 @@ void Scene::loadFromFile(const std::string& fileName) {
 			else {
 				rootDirectory = "assets/";
 			}
-			for (const auto& file : std::filesystem::directory_iterator(rootDirectory)) {
+			for (const auto& file : fs::directory_iterator(rootDirectory)) {
+				#ifdef __WIN32
 				if (file.is_directory()) continue;
+				#elif __linux__
+				if (fs::is_directory(file)) continue;
+				#endif
 				auto ext = file.path().extension();
 				if (isImageExtension(ext.string())) {
 					textureFiles[file.path().stem().string()] = (file.path().filename().string());

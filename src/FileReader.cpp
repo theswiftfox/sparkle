@@ -8,7 +8,14 @@
 #include <gli/load_dds.hpp>
 
 #include <string>
-#include <filesystem>
+
+#ifdef __WIN32
+	#include <filesystem>
+	namespace fs = std::filesystem;
+#elif __linux__
+	#include <experimental/filesystem>
+	namespace fs = std::experimental::filesystem;
+#endif
 
 
 std::vector<char> Engine::Tools::FileReader::readFile(const std::string& fileName) {
@@ -57,8 +64,8 @@ Engine::Tools::FileReader::ImageFile Engine::Tools::FileReader::loadImage(std::s
 	image.size = -1;
 	image.imageFileType = SPARKLE_IMAGE_OTHER;
 
-	std::filesystem::path fs(imagePath);
-	if (fs.extension().compare(".dds") == 0) { // use gli
+	fs::path path(imagePath);
+	if (path.extension().compare(".dds") == 0) { // use gli
 		image.tex = gli::texture2d(gli::load_dds(imagePath));
 		if (image.tex.empty()) {
 			throw std::runtime_error("DDS: Unable to load texture from: " + imagePath);
