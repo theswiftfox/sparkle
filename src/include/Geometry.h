@@ -5,8 +5,6 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
 
 #include "Texture.h"
 #include "Material.h"

@@ -67,6 +67,10 @@ void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>>
 void Engine::Material::updateDescriptorSets()
 {
 	std::vector<VkWriteDescriptorSet> writes;
+	if (textures.find(TEX_TYPE_SPECULAR) == textures.end()) {
+		throw std::runtime_error("Only textured material supported");
+	}
+	auto placeholder = textures[TEX_TYPE_SPECULAR]->descriptor();
 
 	if (textures.find(TEX_TYPE_DIFFUSE) != textures.end()) {
 		auto descriptor = textures[TEX_TYPE_DIFFUSE]->descriptor();
@@ -100,8 +104,12 @@ void Engine::Material::updateDescriptorSets()
 		};
 		writes.push_back(write);
 	}
-	if (textures.find(TEX_TYPE_NORMAL) != textures.end()) {
-		auto descriptor = textures[TEX_TYPE_NORMAL]->descriptor();
+	{
+		auto descriptor = placeholder;
+		if (textures.find(TEX_TYPE_NORMAL) != textures.end()) {
+			descriptor = textures[TEX_TYPE_NORMAL]->descriptor();
+			uniforms.features |= SPARKLE_MAT_NORMAL_MAP;
+		}
 		VkWriteDescriptorSet write = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
@@ -115,10 +123,14 @@ void Engine::Material::updateDescriptorSets()
 			nullptr
 		};
 		writes.push_back(write);
-		uniforms.features |= SPARKLE_MAT_NORMAL_MAP;
 	}
-	if (textures.find(TEX_TYPE_ROUGHNESS) != textures.end()) {
-		auto descriptor = textures[TEX_TYPE_ROUGHNESS]->descriptor();
+	{
+		auto descriptor = placeholder;
+		if (textures.find(TEX_TYPE_ROUGHNESS) != textures.end()) {
+			descriptor = textures[TEX_TYPE_ROUGHNESS]->descriptor();
+			uniforms.features |= SPARKLE_MAT_PBR;
+		}
+
 		VkWriteDescriptorSet write = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
@@ -132,10 +144,13 @@ void Engine::Material::updateDescriptorSets()
 			nullptr
 		};
 		writes.push_back(write);
-		uniforms.features |= SPARKLE_MAT_PBR;
 	}
-	if (textures.find(TEX_TYPE_METALLIC) != textures.end()) {
-		auto descriptor = textures[TEX_TYPE_METALLIC]->descriptor();
+	{
+		auto descriptor = placeholder;
+		if (textures.find(TEX_TYPE_METALLIC) != textures.end()) {
+			descriptor = textures[TEX_TYPE_METALLIC]->descriptor();
+			uniforms.features |= SPARKLE_MAT_PBR;
+		}
 		VkWriteDescriptorSet write = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
@@ -149,7 +164,6 @@ void Engine::Material::updateDescriptorSets()
 			nullptr
 		};
 		writes.push_back(write);
-		uniforms.features |= SPARKLE_MAT_PBR;
 	}
 
 	if (writes.size() > 0) {
