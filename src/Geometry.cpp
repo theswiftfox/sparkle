@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-#ifdef __WIN32
+#ifdef _WIN32
 	#include <filesystem>
 	namespace fs = std::filesystem;
 #elif __linux__

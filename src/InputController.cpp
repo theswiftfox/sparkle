@@ -1,6 +1,6 @@
 #include "InputController.h"
 
-#ifdef __WIN32
+#ifdef _WIN32
 	#define GLFW_EXPOSE_NATIVE_WIN32
 #elif __linux__
 	#ifdef USE_WAYLAND
@@ -102,7 +102,7 @@ void InputController::init() {
 	io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
 	io.BackendPlatformName = "inputController";
 
-#ifdef __WIN32
+#ifdef _WIN32
 	io.ImeWindowHandle = (void*)glfwGetWin32Window(window);
 #elif __linux__
 	io.ImeWindowHandle = (void*)glfwGetX11Window(window);

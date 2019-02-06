@@ -131,7 +131,7 @@ vec3 BRDF(vec3 V, vec3 N, vec3 albedo, vec3 F0, Light light, float metallic, flo
 
 	vec3 color = vec3(0.0);
 
-	if (dotNL > 0.0 && dotNV > 0.0)
+	//if (dotNL > 0.0 && dotNV > 0.0)
 	{
 		// D = Normal distribution
 		float D = NDF(dotNH, roughness); 
