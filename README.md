@@ -2,9 +2,11 @@
 
 Vulkan based rendering engine.
 
-## TODO
+## Planned
 * use vulkan compute shader for frustum culling  
-* generate new command buffers in compute shader
+* generate new command buffers in compute shader  
+* integrate Scripting language for main application logic  
+* separate editor and game view  
 
 ## Dependencies  
 * GCC/Clang/MSVC with C++17 support  
