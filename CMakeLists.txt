@@ -1,18 +1,17 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+project(sparkle-engine VERSION 0.1 LANGUAGES CXX)
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-project(sparkle-engine VERSION 0.1 LANGUAGES CXX)
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 if (NOT MSVC)
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		add_compile_options("-stdlib=libc++")
-		#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 	endif()
 endif()
@@ -29,11 +28,6 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
-#set(ASSIMP_NO_EXPORT ON CACHE BOOL "" FORCE)
-#set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-#set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
-#add_subdirectory(3rdParty/assimp)
-
 # on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
 
@@ -46,7 +40,6 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/stb")
 include_directories("${Vulkan_INCLUDE_DIR}")
 include_directories("${ASSIMP_INCLUDE_DIR}")
-#include_directories("${CMAKE_SOURCE_DIR}/3rdParty/assimp/include")
 
 # get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 # foreach(dir ${dirs})
@@ -107,12 +100,14 @@ set(ASSETS
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE})
+target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} -lc++fs)
 
+if (WIN32)
 add_custom_command(
 	TARGET ${PROJECT_NAME} POST_BUILD
 	COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ASSIMP_ROOT_DIR}/bin/assimp-${ASSIMP_MSVC_VERSION}-mt.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
+endif()
 
 foreach(SHADER ${SHADERS})
 	get_filename_component(FILE_NAME ${SHADER} NAME)

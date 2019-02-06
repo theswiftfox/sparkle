@@ -47,26 +47,40 @@ if(WIN32)
 	ENDFUNCTION(ASSIMP_COPY_BINARIES)
 		
 else(WIN32)
-
 	find_path(
-	  assimp_INCLUDE_DIRS
-	  NAMES postprocess.h scene.h version.h config.h cimport.h
-	  PATHS /usr/local/include/
+		ASSIMP_INCLUDE_DIR
+		NAMES postprocess.h scene.h version.h config.h cimport.h
+		PATHS /usr/include/assimp
 	)
+	if (NOT ASSIMP_INCLUDE_DIR)
+		find_path(
+			ASSIMP_INCLUDE_DIR
+			NAMES postprocess.h scene.h version.h config.h cimport.h
+			PATHS /usr/local/include/assimp
+		)
+	endif()
 
 	find_library(
-	  assimp_LIBRARIES
+	  ASSIMP_LIBRARY
 	  NAMES assimp
-	  PATHS /usr/local/lib/
+	  PATHS /usr/lib/
 	)
+	if (NOT ASSIMP_LIBRARY)
+		find_library(
+			ASSIMP_LIBRARY
+			NAMES assimp
+			PATHS /usr/local/lib/
+		)
+	endif()
 
-	if (assimp_INCLUDE_DIRS AND assimp_LIBRARIES)
-	  SET(assimp_FOUND TRUE)
-	ENDIF (assimp_INCLUDE_DIRS AND assimp_LIBRARIES)
+	if (ASSIMP_INCLUDE_DIR AND ASSIMP_LIBRARY)
+		SET(assimp_FOUND TRUE)
+		SET(ASSIMP_LIBRARY_RELEASE ${ASSIMP_LIBRARY})
+	ENDIF (ASSIMP_INCLUDE_DIR AND ASSIMP_LIBRARY)
 
 	if (assimp_FOUND)
 	  if (NOT assimp_FIND_QUIETLY)
-		message(STATUS "Found asset importer library: ${assimp_LIBRARIES}")
+		message(STATUS "Found asset importer library: ${ASSIMP_LIBRARY}")
 	  endif (NOT assimp_FIND_QUIETLY)
 	else (assimp_FOUND)
 	  if (assimp_FIND_REQUIRED)
