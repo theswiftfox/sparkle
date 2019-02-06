@@ -11,3 +11,10 @@ Vulkan based rendering engine.
 * Vulkan SDK  
 * glslang package on linux
 * [assimp](https://github.com/assimp/assimp)
+
+
+## Setup assimp on windows  
+* Build assimp for your MSVC version and copy it to desired location (for ex. C:\Tools\assimp)  
+* set Windows Environment variable "ASSIMP_ROOT_DIR" to the Path to your assimp folder  
+* clear existing cache for cmake (remove CMakeCache.txt or delete the cache folder)  
+* CMake should detect your assimp installation now
