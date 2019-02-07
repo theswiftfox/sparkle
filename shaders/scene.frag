@@ -120,7 +120,7 @@ vec3 BRDF(vec3 V, vec3 N, vec3 albedo, vec3 F0, Light light, float metallic, flo
 	float distance = length(L);
 	float attenuation = 1.0 / (distance * distance);
 	vec3 radiance = light.color.rgb * attenuation;
-
+	
 	L = normalize(L);
 	vec3 H = normalize (V + L);
 
@@ -131,7 +131,7 @@ vec3 BRDF(vec3 V, vec3 N, vec3 albedo, vec3 F0, Light light, float metallic, flo
 
 	vec3 color = vec3(0.0);
 
-	//if (dotNL > 0.0 && dotNV > 0.0)
+	if (dotNL > 0.0 && dotNV > 0.0)
 	{
 		// D = Normal distribution
 		float D = NDF(dotNH, roughness); 
@@ -176,7 +176,7 @@ void main() {
 
 		vec3 F0 = mix(vec3(0.04), albedo, metallic);
 		
-		vec3 lo;
+		vec3 lo = vec3(0.0);
 		for (int i = 0; i < 9; i++) {
 			lo += BRDF(V, N, albedo, F0, ubo.lights[i], metallic, roughness);
 		}

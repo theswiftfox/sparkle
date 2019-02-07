@@ -21,7 +21,8 @@ static void checkVkResult(VkResult err) {
 
 void RenderBackend::setupVulkan() {
 	createVulkanInstance();
-	setupDebugCallback(); createSurface();
+	setupDebugCallback();
+    createSurface();
 	selectPhysicalDevice();
 	createVulkanDevice();
 	createSwapChain();
@@ -171,7 +172,7 @@ void RenderBackend::updateUniforms() {
 	int width, height;
 	glfwGetWindowSize(pWindow, &width, &height);
 
-	Shaders::UBO ubo = {};
+	Shaders::UniformBufferObject ubo = {};
 
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();

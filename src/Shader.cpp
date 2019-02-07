@@ -3,10 +3,27 @@
 #include "FileReader.h"
 #include "Application.h"
 
-#ifndef _WINDOWS
-#define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
-#define _aligned_free(obj) free(obj)
+void* _alignedAlloc(size_t size, size_t alignment)
+{
+	void *data = nullptr;
+#if defined(_MSC_VER)
+	data = _aligned_malloc(size, alignment);
+#else 
+	int res = posix_memalign(&data, alignment, size);
+	if (res != 0)
+		data = nullptr;
 #endif
+	return data;
+}
+
+void _alignedFree(void* data)
+{
+#if	defined(_MSC_VER)
+	_aligned_free(data);
+#else 
+	free(data);
+#endif
+}
 
 using namespace Engine::Shaders;
 
@@ -66,7 +83,7 @@ void ShaderProgram::cleanup() const {
 }
 
 
-void ShaderProgram::updateUniformBufferObject(const UBO& ubo)
+void ShaderProgram::updateUniformBufferObject(const UniformBufferObject& ubo)
 {
 	pUniformBuffer.map();
 	pUniformBuffer.copyTo(&ubo, sizeof(ubo));
@@ -136,7 +153,7 @@ void ShaderProgram::createUniformBuffer()
 	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = props.limits.minUniformBufferOffsetAlignment;
 
-	const auto uboSize = sizeof(UBO);
+	const auto uboSize = sizeof(UniformBufferObject);
 	if (alignment > 0) {
 		fragSettingsOffset = (uboSize + alignment - 1) & ~(alignment - 1);
 	}
@@ -157,7 +174,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	if (pDynamicBuffer.buffer) {
 		pDynamicBuffer.destroy(true);
 
-		_aligned_free(dynamicUboData.model);
+		_alignedFree(dynamicUboData);
 	}
 
 	objectCount = size;
@@ -166,13 +183,13 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size) {
 	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = static_cast<uint32_t>(props.limits.minUniformBufferOffsetAlignment);
 
-	dUboAlignment = static_cast<uint32_t>(sizeof(glm::mat4));
+	dUboAlignment = static_cast<uint32_t>(sizeof(InstancedUniformBufferObject));
 	if (alignment > 0) {
 		dUboAlignment = (dUboAlignment + alignment - 1) & ~(alignment - 1);
 	}
 	// if buffer is initialized with empty geometry (objectCount of 0), use 1 alignment as initial size.
-	dynamicUboDataSize = objectCount > 0 ? objectCount * 2 * dUboAlignment : dUboAlignment;
-	dynamicUboData.model = (glm::mat4*)_aligned_malloc(dynamicUboDataSize, dUboAlignment);
+	dynamicUboDataSize = objectCount > 0 ? objectCount * dUboAlignment : dUboAlignment;
+	dynamicUboData = (InstancedUniformBufferObject*)_alignedAlloc(dynamicUboDataSize, dUboAlignment);
 
 	renderer->createBuffer(dynamicUboDataSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicBuffer, pDynamicBufferMemory);
 	
@@ -188,12 +205,11 @@ void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shar
 	}
 	for (auto i = 0; i < meshes.size(); ++i) {
 		const auto modelMat = meshes[i]->accumModel();
-		const auto model = (glm::mat4*)((uint64_t)dynamicUboData.model + i * dUboAlignment);
-		*model = glm::mat4(modelMat);
-		const auto normal = model + sizeof(glm::mat4);
-		*normal = glm::transpose(glm::inverse(modelMat));
+		const auto iUbo = (InstancedUniformBufferObject*)((uint64_t)dynamicUboData + i * dUboAlignment);
+		iUbo->model = glm::mat4(modelMat);
+		iUbo->normal = glm::transpose(glm::inverse(modelMat));
 	}
-	pDynamicBuffer.copyTo(dynamicUboData.model, dynamicUboDataSize);
+	pDynamicBuffer.copyTo(dynamicUboData, dynamicUboDataSize);
 	pDynamicBuffer.flush();
 }
 
@@ -203,7 +219,7 @@ std::array<VkDescriptorBufferInfo, 2> ShaderProgram::getDescriptorInfos() const
 	const VkDescriptorBufferInfo uboModel = {
 		pUniformBuffer.buffer,
 		0,
-		sizeof(UBO)
+		sizeof(UniformBufferObject)
 	};
 
 	const VkDescriptorBufferInfo fragSettingsModel = {
