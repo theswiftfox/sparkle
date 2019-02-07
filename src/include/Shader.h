@@ -17,23 +17,24 @@ namespace Engine {
 
 		class App;
 
-		typedef struct UniformBufferObject {
+		struct UniformBufferObject {
 			glm::mat4 view;
 			glm::mat4 projection;
-		} UBO;
+		};
 
-		typedef struct InstancedUniformBufferObject {
-			glm::mat4* model;
-		} InstancedUBO;
+		struct InstancedUniformBufferObject {
+			glm::mat4 model;
+            glm::mat4 normal;
+		};
 
-		typedef struct FragmentShaderUniforms {
+		struct FragmentShaderUniforms {
 			glm::vec4 cameraPos;
 			uint32_t numLights;
 			float exposure = 1.0f;
 			float gamma = 2.2f;
 			float _pad;
 			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
-		} FragmentShaderUniforms;
+		};
 
 		class ShaderProgram {		
 		public:
@@ -43,7 +44,7 @@ namespace Engine {
 
 			void cleanup() const;
 
-			void updateUniformBufferObject(const UBO& ubo);
+			void updateUniformBufferObject(const UniformBufferObject& ubo);
 			void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
 			void updateFragmentShaderUniforms(const FragmentShaderUniforms& sets);
 
@@ -76,7 +77,7 @@ namespace Engine {
 			size_t objectCount;
 			uint32_t dUboAlignment{};
 
-			InstancedUBO dynamicUboData{};
+			InstancedUniformBufferObject *dynamicUboData;
 			VkDeviceSize dynamicUboDataSize{};
 
 			void createUniformBuffer();
