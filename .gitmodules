@@ -16,3 +16,7 @@
 [submodule "3rdParty/gli"]
 	path = 3rdParty/gli
 	url = https://github.com/g-truc/gli.git
+[submodule "3rdParty/ChakraCore"]
+	path = 3rdParty/ChakraCore
+	url = https://github.com/Microsoft/ChakraCore.git
+	shallow = true
