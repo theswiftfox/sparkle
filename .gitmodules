@@ -16,3 +16,7 @@
 [submodule "3rdParty/gli"]
 	path = 3rdParty/gli
 	url = https://github.com/g-truc/gli.git
+[submodule "3rdParty/v8"]
+	path = 3rdParty/v8
+	url = https://github.com/v8/v8.git
+	shallow = true
