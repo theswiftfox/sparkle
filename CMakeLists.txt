@@ -28,6 +28,12 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
+# chakraCore
+set(CC_TARGETS_AMD64_SH ON CACHE BOOL "" FORCE)
+set(SHARED_LIBRARY_SH ON CACHE BOOL "" FORCE)
+set(LIBS_ONLY_BUILD_SH ON CACHE BOOL "" FORCE)
+add_subdirectory(3rdParty/ChakraCore)
+
 # on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
 
@@ -38,6 +44,7 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glm")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/stb")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/lib/")
 include_directories("${Vulkan_INCLUDE_DIR}")
 include_directories("${ASSIMP_INCLUDE_DIR}")
 
@@ -100,7 +107,8 @@ set(ASSETS
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} -lc++fs)
+# TODO: move lc++fs to linux only part of script
+target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} ChakraCore -lc++fs)
 
 if (WIN32)
 add_custom_command(
