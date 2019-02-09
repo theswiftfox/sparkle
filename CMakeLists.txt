@@ -10,9 +10,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 if (NOT MSVC)
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-		add_compile_options("-stdlib=libc++")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+		add_compile_options("-stdlib=libstdc++")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fms-extensions")
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libstdc++")
 	endif()
 endif()
 
@@ -28,11 +28,22 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
+#ICU
+#set(BUILD_ICU ON CACHE BOOL "" FORCE)
+#set(ICU_BUILD_VERSION 63.1 CACHE STRING "" FORCE)
+#add_subdirectory(3rdParty/icu-cmake)
+
 # chakraCore
+set(PREV_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+set(CMAKE_BUILD_TYPE Release)
 set(CC_TARGETS_AMD64_SH ON CACHE BOOL "" FORCE)
 set(SHARED_LIBRARY_SH ON CACHE BOOL "" FORCE)
+set(STATIC_LIBRARY_SH OFF CACHE BOOL "" FORCE)
 set(LIBS_ONLY_BUILD_SH ON CACHE BOOL "" FORCE)
+set(NO_ICU_SH ON CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/ChakraCore)
+
+set(CMAKE_BUILD_TYPE ${PREV_BUILD_TYPE})
 
 # on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
@@ -45,6 +56,9 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/stb")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/lib/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/inc")
+include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/inc/rt")
 include_directories("${Vulkan_INCLUDE_DIR}")
 include_directories("${ASSIMP_INCLUDE_DIR}")
 
@@ -73,6 +87,8 @@ set(SRC
 	3rdParty/imgui/imgui_draw.cpp
 	3rdParty/imgui/imgui_demo.cpp
 	3rdParty/imgui/imgui_widgets.cpp
+	
+	#src/ConfigParserAPIImpl.cpp
 )
 
 set(HDR
@@ -108,7 +124,7 @@ set(ASSETS
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
 # TODO: move lc++fs to linux only part of script
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} ChakraCore -lc++fs)
+target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} ChakraCore stdc++fs)
 
 if (WIN32)
 add_custom_command(
