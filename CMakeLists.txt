@@ -28,11 +28,6 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
-#ICU
-#set(BUILD_ICU ON CACHE BOOL "" FORCE)
-#set(ICU_BUILD_VERSION 63.1 CACHE STRING "" FORCE)
-#add_subdirectory(3rdParty/icu-cmake)
-
 # chakraCore
 set(PREV_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 set(CMAKE_BUILD_TYPE Release)
