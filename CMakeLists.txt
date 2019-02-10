@@ -29,6 +29,7 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
 # chakraCore
+if(NOT MSVC)
 set(PREV_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 set(CMAKE_BUILD_TYPE Release)
 set(CC_TARGETS_AMD64_SH ON CACHE BOOL "" FORCE)
@@ -39,6 +40,9 @@ set(NO_ICU_SH ON CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/ChakraCore)
 
 set(CMAKE_BUILD_TYPE ${PREV_BUILD_TYPE})
+else()
+	# TODO: include msbuild step here instead of prebuilt libs?
+endif()
 
 # on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
@@ -51,9 +55,6 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/stb")
 include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/lib/")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/inc")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/pal/inc/rt")
 include_directories("${Vulkan_INCLUDE_DIR}")
 include_directories("${ASSIMP_INCLUDE_DIR}")
 
@@ -82,8 +83,6 @@ set(SRC
 	3rdParty/imgui/imgui_draw.cpp
 	3rdParty/imgui/imgui_demo.cpp
 	3rdParty/imgui/imgui_widgets.cpp
-	
-	#src/ConfigParserAPIImpl.cpp
 )
 
 set(HDR
@@ -118,13 +117,21 @@ set(ASSETS
 )
 
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-# TODO: move lc++fs to linux only part of script
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} ChakraCore stdc++fs)
+set(LINKLIBRARIES ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE})
+if (MSVC) 
+target_link_libraries(${PROJECT_NAME} ${LINKLIBRARIES} ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/ChakraCore.lib)
+else()
+target_link_libraries(${PROJECT_NAME ${LINKLIBRARIES} ChakraCore stdc++fs)
+endif()
 
 if (WIN32)
 add_custom_command(
 	TARGET ${PROJECT_NAME} POST_BUILD
 	COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ASSIMP_ROOT_DIR}/bin/assimp-${ASSIMP_MSVC_VERSION}-mt.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
+add_custom_command(
+	TARGET ${PROJECT_NAME} POST_BUILD
+	COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/ChakraCore.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
 endif()
 
