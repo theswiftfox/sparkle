@@ -55,6 +55,7 @@ namespace Engine {
 		void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 		
 		void cleanup() {
+			fontTex->cleanup();
 			fontTex.reset();
 			vertexBuffer.destroy(true);
 			delete(vertexMemory);
@@ -67,10 +68,16 @@ namespace Engine {
 			vkDestroyPipeline(device, pipeline, nullptr);
 			vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 			vkDestroyPipelineCache(device, pipelineCache, nullptr);
+
+			vkDestroyShaderModule(device, vtxModule, nullptr);
+			vkDestroyShaderModule(device, frgModule, nullptr);
 		}
 	private:
 		static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
 		static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
+
+		VkShaderModule vtxModule;
+		VkShaderModule frgModule;
 
 		std::shared_ptr<RenderBackend> renderBackend;
 

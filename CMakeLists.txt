@@ -10,9 +10,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 if (NOT MSVC)
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-		add_compile_options("-stdlib=libc++")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+		add_compile_options("-stdlib=libstdc++")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fms-extensions")
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libstdc++")
 	endif()
 endif()
 
@@ -28,18 +28,30 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdParty/glfw)
 
+# chakraCore
+if(NOT MSVC)
+	if (BUILD_CHAKRA_CORE)
+		set(PREV_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+		set(CMAKE_BUILD_TYPE Release)
+		set(CC_TARGETS_AMD64_SH ON CACHE BOOL "" FORCE)
+		set(SHARED_LIBRARY_SH ON CACHE BOOL "" FORCE)
+		set(STATIC_LIBRARY_SH OFF CACHE BOOL "" FORCE)
+		set(LIBS_ONLY_BUILD_SH ON CACHE BOOL "" FORCE)
+		set(NO_ICU_SH ON CACHE BOOL "" FORCE)
+		add_subdirectory(3rdParty/ChakraCore)
+
+		set(CMAKE_BUILD_TYPE ${PREV_BUILD_TYPE})
+
+		set(CHAKRA_LIB ChakraCore)
+	else()
+		set(CHAKRA_LIB ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/libChakraCore.so)
+	endif()
+else()
+	set(CHAKRA_LIB ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/ChakraCore.lib)
+endif()
+
 # on windows set the environment variable ASSIMP_ROOT_DIR to the folder containing assimp bin and include folders
 find_package(assimp REQUIRED)
-
-include_directories("${CMAKE_SOURCE_DIR}/src/include")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/gli")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glm")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
-include_directories("${CMAKE_SOURCE_DIR}/3rdParty/stb")
-include_directories("${Vulkan_INCLUDE_DIR}")
-include_directories("${ASSIMP_INCLUDE_DIR}")
 
 # get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 # foreach(dir ${dirs})
@@ -61,6 +73,7 @@ set(SRC
 	src/Shader.cpp
 	src/Texture.cpp
 	src/UI.cpp
+	src/Util.cpp
 
 	3rdParty/imgui/imgui.cpp
 	3rdParty/imgui/imgui_draw.cpp
@@ -82,6 +95,8 @@ set(HDR
 	src/include/Shader.h
 	src/include/Texture.h
 	src/include/UI.h
+	src/include/Util.h
+	src/include/SparkleChakraCore.h
 )
 
 set(SHADERS
@@ -99,13 +114,36 @@ set(ASSETS
 	assets/materials/default/spec.png
 )
 
+# Sparkle Engine
 add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE} -lc++fs)
+
+# Additional Include Directories
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/src/include")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/gli")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/glm")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/glfw/include")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/simpleini")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/stb")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/ChakraCore/lib/")
+target_include_directories(${PROJECT_NAME} PRIVATE "${Vulkan_INCLUDE_DIR}")
+target_include_directories(${PROJECT_NAME} PRIVATE "${ASSIMP_INCLUDE_DIR}")
+
+set(LINKLIBRARIES ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE})
+if (MSVC) 
+	target_link_libraries(${PROJECT_NAME} ${LINKLIBRARIES} ${CHAKRA_LIB})
+else()
+	target_link_libraries(${PROJECT_NAME} ${LINKLIBRARIES} ${CHAKRA_LIB} stdc++fs)
+endif()
 
 if (WIN32)
 add_custom_command(
 	TARGET ${PROJECT_NAME} POST_BUILD
 	COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ASSIMP_ROOT_DIR}/bin/assimp-${ASSIMP_MSVC_VERSION}-mt.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
+add_custom_command(
+	TARGET ${PROJECT_NAME} POST_BUILD
+	COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/ChakraCore.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
 endif()
 

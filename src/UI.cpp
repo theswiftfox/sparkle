@@ -214,10 +214,14 @@ void GUI::initResources() {
 	shaderStages[0] = loadUiShader("shaders/ui.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadUiShader("shaders/ui.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
+	vtxModule = shaderStages[0].module;
+	frgModule = shaderStages[1].module;
+
 	VK_THROW_ON_ERROR(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &pipeline), "GUI Pipeline creation failed");
 }
 
 void GUI::updateBuffers(const std::vector<VkFence>& fences) {
+	auto device = App::getHandle().getRenderBackend()->getDevice();
 	auto drawData = ImGui::GetDrawData();
 
 	if ((drawData->TotalVtxCount == 0) || (drawData->TotalIdxCount == 0)) {
@@ -230,9 +234,13 @@ void GUI::updateBuffers(const std::vector<VkFence>& fences) {
 			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, uint64_t(5e+8)); // wait for .5s
 			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
 		}
-		vertexBuffer.destroy(true);
+		if (vertexBuffer.buffer) {
+			vertexBuffer.destroy(true);
+		}
 		if (!vertexMemory) {
 			vertexMemory = new vkExt::SharedMemory();
+		} else if (vertexMemory->memory) {
+			vertexMemory->free(device);
 		}
 		VkDeviceSize vtxBuffSize = std::min<VkDeviceSize>(sizeof(ImDrawVert) * drawData->TotalVtxCount * 10, minVtxBufferSize);
 		vtxCount = vtxBuffSize / sizeof(ImDrawVert);
@@ -245,9 +253,13 @@ void GUI::updateBuffers(const std::vector<VkFence>& fences) {
 			vkWaitForFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 			vkResetFences(renderBackend->getDevice(), static_cast<uint32_t>(fences.size()), fences.data());
 		}
-		indexBuffer.destroy(true);
+		if (indexBuffer.buffer) {
+			indexBuffer.destroy(true);
+		}
 		if (!indexMemory) {
 			indexMemory = new vkExt::SharedMemory();
+		} else if (indexMemory->memory) {
+			indexMemory->free(device);
 		}
 		VkDeviceSize idxBuffSize = std::min<VkDeviceSize>(sizeof(ImDrawIdx) * drawData->TotalIdxCount * 10, minIdxBufferSize);
 		idxCount = idxBuffSize / sizeof(ImDrawIdx);

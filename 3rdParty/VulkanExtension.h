@@ -180,11 +180,16 @@ namespace vkExt {
 
 		void destroy(bool freeMem = false) const {
 			unmap();
+			if (freeMem && !memory) {
+				std::cout << "Trying to free Memory for buffer (" << buffer<< ")" << std::endl;
+			}
 			if (buffer) {
 				vkDestroyBuffer(device, buffer, nullptr);
 			}
 			if (freeMem) {
-				if (!memory) return;
+				if (!memory) {
+					return;
+				}
 				memory->free(device);
 			}
 		}

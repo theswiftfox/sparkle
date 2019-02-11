@@ -50,8 +50,6 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 	requiredFeatures.samplerAnisotropy = VK_TRUE;
 	requiredFeatures.textureCompressionBC = VK_TRUE;
 
-	// todo:
-	// * load settings
 	auto[width, height] = settings->getResolution();
 	viewportWidth = width;
 	viewportHeight = height;
@@ -208,6 +206,28 @@ void RenderBackend::cleanupSwapChain() {
 			deviceCreatedImageViews.erase(i);
 		}
 	}
+	for (auto depthImageView : depthImageViews) {
+		vkDestroyImageView(pVulkanDevice, depthImageView, nullptr);
+		auto i = std::find(deviceCreatedImageViews.begin(), deviceCreatedImageViews.end(), depthImageView);
+		if (i != deviceCreatedImageViews.end()) {
+			deviceCreatedImageViews.erase(i);
+		}
+	}
+	depthImageViews.clear();
+
+	for (auto depthImage : depthImages) {
+		depthImage.destroy(true);
+		auto i = std::find(deviceCreatedImages.begin(), deviceCreatedImages.end(), depthImage.image);
+		if (i != deviceCreatedImages.end()) {
+			deviceCreatedImages.erase(i);
+		}
+	}
+	depthImages.clear();
+
+	for (auto depthMem : depthImageMemory) {
+		delete(depthMem);
+	}
+	depthImageMemory.clear();
 
 	vkDestroySwapchainKHR(pVulkanDevice, pSwapChain, nullptr);
 
@@ -237,6 +257,7 @@ void RenderBackend::cleanup() {
 		vkDestroyImage(pVulkanDevice, image, nullptr);
 	}
 
+	vkDestroyDescriptorSetLayout(pVulkanDevice, pMaterialDescriptorSetLayout, nullptr);
 	vkDestroyCommandPool(pVulkanDevice, pCommandPool, nullptr);
 	
 	pScene.reset();
@@ -843,7 +864,7 @@ void RenderBackend::endOneTimeCommand(VkCommandBuffer buffer) const {
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &buffer);
 }
 
-void RenderBackend::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) const {
+void RenderBackend::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) {
 	VkBuffer tmpBuffer;
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -872,6 +893,8 @@ void RenderBackend::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 		throw std::runtime_error("Buffer Memory allocation failed!");
 	}
 
+	deviceAllocatedMemory.push_back(&deviceMem);
+
 	bufferMemory->memory = deviceMem;
 	bufferMemory->size = memReqs.size;
 	bufferMemory->isAlive = true;
@@ -886,7 +909,7 @@ void RenderBackend::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 	buffer.bind();
 }
 
-void RenderBackend::allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) const {
+void RenderBackend::allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) {
 	VkMemoryAllocateInfo allocInfo = {
 		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		nullptr,
@@ -903,6 +926,8 @@ void RenderBackend::allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags prop
 	}
 	memory->size = size;
 	memory->isAlive = true;
+
+	deviceAllocatedMemory.push_back(&(memory->memory));
 }
 
 void RenderBackend::createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset, VkImageLayout initialLayout /*= VK_IMAGE_LAYOUT_UNDEFINED*/) {
