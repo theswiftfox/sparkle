@@ -27,23 +27,42 @@ void _alignedFree(void* data)
 
 using namespace Engine::Shaders;
 
-ShaderProgram::ShaderProgram(const std::string& vtxShaderFile, const std::string& tescShaderFile, const std::string& teseShaderFile, const std::string& fragShaderFile, size_t objectInstances) {
+ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources) {
 	pUniformBufferMemory = new vkExt::SharedMemory();
 	pDynamicBufferMemory = new vkExt::SharedMemory();
-	objectCount = objectInstances;
-	if (!vtxShaderFile.empty()) {
-		const auto vtxShaderCode = Tools::FileReader::readFile(vtxShaderFile);
-		vertexShader = createShaderModule(vtxShaderCode);
-	}
-	if (!tescShaderFile.empty() && !teseShaderFile.empty()) {
-		const auto tescShaderCode = Tools::FileReader::readFile(tescShaderFile);
-		const auto teseShaderCode = Tools::FileReader::readFile(teseShaderFile);
-		tessControlShader = createShaderModule(tescShaderCode);
-		tessEvalShader = createShaderModule(teseShaderCode);
-	}
-	if (!fragShaderFile.empty()) {
-		const auto fragShaderCode = Tools::FileReader::readFile(fragShaderFile);
-		fragmentShader = createShaderModule(fragShaderCode);
+	objectCount = 0;
+
+
+	for (const auto& shader : shaderSources) {
+		switch(shader.type) {
+			case Vertex:
+			{
+				const auto vtxShaderCode = Tools::FileReader::readFile(shader.filePath);
+				vertexShader = createShaderModule(vtxShaderCode);
+				break;
+			}
+			case TessellationControl:
+			{
+				const auto tescShaderCode = Tools::FileReader::readFile(shader.filePath);
+				tessControlShader = createShaderModule(tescShaderCode);
+				break;
+			}
+			case TessellationEvaluation:
+			{
+				const auto teseShaderCode = Tools::FileReader::readFile(shader.filePath);
+				tessEvalShader = createShaderModule(teseShaderCode);
+				break;
+			}
+			case Fragment:
+			{
+				const auto fragShaderCode = Tools::FileReader::readFile(shader.filePath);
+				fragmentShader = createShaderModule(fragShaderCode);
+				break;
+			}
+			default:
+				throw std::runtime_error("Unsupported Shader type for Graphics Shader! Did you mean to use a compute shader?");
+				break;
+		}
 	}
 
 	createUniformBuffer();

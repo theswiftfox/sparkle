@@ -11,11 +11,24 @@
 #include "Lights.h"
 
 namespace Engine {
+	class App;
 	namespace Shaders {
 
-#define SPARKLE_SHADER_LIMIT_LIGHTS 9
+		#define SPARKLE_SHADER_LIMIT_LIGHTS 9
 
-		class App;
+		enum ShaderType {
+			Vertex,
+			TessellationControl,
+			TessellationEvaluation,
+			Geometry,
+			Fragment,
+			Compute
+		};
+
+		struct ShaderSource {
+			ShaderType type;
+			std::string filePath;
+		};
 
 		struct UniformBufferObject {
 			glm::mat4 view;
@@ -38,7 +51,7 @@ namespace Engine {
 
 		class ShaderProgram {		
 		public:
-			ShaderProgram(const std::string& vtxShaderFile, const std::string& tescShaderFile, const std::string& teseShaderFile, const std::string& fragShaderFile, size_t objectInstances);
+			ShaderProgram(const std::vector<ShaderSource>& shaderSources);
 
 			static VkShaderModule createShaderModule(const std::vector<char>& code);
 

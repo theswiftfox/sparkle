@@ -13,6 +13,8 @@
 
 #include <algorithm>
 
+#include "Util.h"
+
 #ifdef _WIN32
 	#include <filesystem>
 	namespace fs = std::filesystem;
@@ -84,15 +86,15 @@ const std::vector<std::shared_ptr<Node>> Scene::getRenderableScene() {
 }
 
 void Scene::cleanup() {
-	for (auto node : drawableSceneCache) {
-		node->getMaterial()->cleanup();
-	}
 	root.reset();
+	for (auto mat : materialCache) {
+		mat->cleanup();
+	}
+	materialCache.clear();
 
 	for (auto& tex : textureCache) {
 		tex->cleanup();
 	}
-
 	textureCache.clear();
 }
 
@@ -120,12 +122,12 @@ std::vector<std::shared_ptr<Texture>> Scene::loadMaterialTextures(aiMaterial * m
 				}
 				if (!isLoaded) {
 					auto tex = std::make_shared<Texture>(texData, typeID, name);
+					textureCache.push_back(tex);
 					textures.push_back(tex);
 				}
 			}
 			catch (std::exception& ex) {
-				// todo: log function
-				std::cout << ex.what() << std::endl;
+				LOTSTDOUT(ex.what());
 			}
 		}
 		else {
@@ -137,11 +139,6 @@ std::vector<std::shared_ptr<Texture>> Scene::loadMaterialTextures(aiMaterial * m
 				stdString = std::string(strPtr);
 			}
 			std::replace(stdString.begin(), stdString.end(), '\\', '/');
-			//auto dirOffs = stdString.rfind('/');
-			//dirOffs = dirOffs == std::string::npos ? stdString.rfind('\\') : dirOffs;
-			//if (dirOffs != std::string::npos) {
-			//	stdString = stdString.substr(dirOffs + 1);
-			//}
 
 			{
 				std::lock_guard<std::mutex> lock(dirMutex);
@@ -299,6 +296,7 @@ void Scene::createMesh(aiNode * node, const aiScene * scene, std::shared_ptr<Nod
 			material = std::make_shared<Material>(textures, specular);
 
 		}
+		if (material) materialCache.push_back(material);
 		
 		auto nodeTransform = node->mTransformation;
 		float tvals[16] = {
