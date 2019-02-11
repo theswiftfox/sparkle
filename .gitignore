@@ -1,5 +1,7 @@
 ## GitIgnore 
 
 build/
+.vscode/
 .vs/
+.idea/
 assets/settings.ini
