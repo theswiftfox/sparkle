@@ -3,13 +3,12 @@
 
 #include "Jsrt/ChakraCore.h"
 
-#ifndef _WIN32
 #include <cstring>
 #include <memory>
 
 #ifdef WITH_WSTRING
 #include <string>
-// TODO: move this stuff to some header eg. "ChakraCoreLinuxBridge.h"
+
 JsErrorCode JsRunScript(const wchar_t * script, JsSourceContext sourceContext, const wchar_t *sourceUrl, JsValueRef * result) {
 	JsValueRef scriptSource;
     JsCreateExternalArrayBuffer((void*)script, (unsigned int)wcslen(script), nullptr, nullptr, &scriptSource);
@@ -43,7 +42,5 @@ JsErrorCode JsStringToPointer(JsValueRef value, const char **stringValue, size_t
 
 	return err;
 }
-
-#endif
 
 #endif
