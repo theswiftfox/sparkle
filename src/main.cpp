@@ -7,6 +7,9 @@
 #include <iostream>
 #include <stdexcept>
 
+
+#ifndef _WIN32
+// TODO: move this stuff to some header eg. "ChakraCoreLinuxBridge.h"
 JsErrorCode JsRunScript(const wchar_t * script, JsSourceContext sourceContext, const wchar_t *sourceUrl, JsValueRef * result) {
 	JsValueRef scriptSource;
     JsCreateExternalArrayBuffer((void*)script, (unsigned int)wcslen(script), nullptr, nullptr, &scriptSource);
@@ -39,6 +42,8 @@ JsErrorCode JsStringToPointer(JsValueRef value, const char **stringValue, size_t
 
 	return err;
 }
+
+#endif
 
 int main(const int argc, char** argv) {
 	JsRuntimeHandle runtime;
