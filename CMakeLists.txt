@@ -121,7 +121,7 @@ set(LINKLIBRARIES ${Vulkan_LIBRARIES} glfw ${ASSIMP_LIBRARY_RELEASE})
 if (MSVC) 
 target_link_libraries(${PROJECT_NAME} ${LINKLIBRARIES} ${CMAKE_SOURCE_DIR}/3rdParty/prebuilt/ChakraCore/x64_release/ChakraCore.lib)
 else()
-target_link_libraries(${PROJECT_NAME ${LINKLIBRARIES} ChakraCore stdc++fs)
+target_link_libraries(${PROJECT_NAME} ${LINKLIBRARIES} ChakraCore stdc++fs)
 endif()
 
 if (WIN32)
