@@ -1,10 +1,44 @@
 #include "Application.h"
 
 #include "Jsrt/ChakraCore.h"
+#include "Jsrt/ChakraCommonWindows.h"
 
 #include <string>
 #include <iostream>
 #include <stdexcept>
+
+JsErrorCode JsRunScript(const wchar_t * script, JsSourceContext sourceContext, const wchar_t *sourceUrl, JsValueRef * result) {
+	JsValueRef scriptSource;
+    JsCreateExternalArrayBuffer((void*)script, (unsigned int)wcslen(script), nullptr, nullptr, &scriptSource);
+    // Run the script.
+	JsValueRef placeholder;
+	JsCreateString("placeholder", strlen("placeholder"), &placeholder);
+	return JsRun(scriptSource, sourceContext++, placeholder, JsParseScriptAttributeNone, result);
+}
+
+JsErrorCode JsRunScript(const char* script, JsSourceContext sourceContext, const char* sourceUlr, JsValueRef* result) {
+	JsValueRef scriptSource;
+	JsCreateExternalArrayBuffer((void*)script, (unsigned int)strlen(script), nullptr, nullptr, &scriptSource);
+	JsValueRef placeholder;
+	JsCreateString("placeholder", strlen("placeholder"), &placeholder);
+	return JsRun(scriptSource, sourceContext++, placeholder, JsParseScriptAttributeNone, result);
+}
+
+JsErrorCode JsStringToPointer(JsValueRef value, const char **stringValue, size_t *stringLength) {
+	char *resultSTR = nullptr;
+	auto err = JsErrorCode::JsNoError;
+    err = JsCopyString(value, nullptr, 0, stringLength);
+	if (err != JsNoError) {
+		return err;
+	}
+    resultSTR = (char*) malloc(*stringLength + 1);
+    err = JsCopyString(value, resultSTR, *stringLength + 1, nullptr);
+	resultSTR[*stringLength] = 0;
+
+	*stringValue = resultSTR;
+
+	return err;
+}
 
 int main(const int argc, char** argv) {
 	JsRuntimeHandle runtime;
@@ -13,7 +47,7 @@ int main(const int argc, char** argv) {
 	unsigned currentSourceContext = 0;
 
 	// Your script; try replace hello-world with something else
-	std::wstring script = L"(()=>{return \'Hello world!\';})()";
+	std::string script = "(()=>{return \'Hello world!\';})()";
 
 	// Create a runtime. 
 	JsCreateRuntime(JsRuntimeAttributeNone, nullptr, &runtime);
@@ -25,19 +59,19 @@ int main(const int argc, char** argv) {
 	JsSetCurrentContext(context);
 
 	// Run the script.
-	JsRunScript(script.c_str(), currentSourceContext++, L"", &result);
+	auto runerr = JsRunScript(script.c_str(), currentSourceContext++, "", &result);
 
 	// Convert your script result to String in JavaScript; redundant if your script returns a String
 	JsValueRef resultJSString;
 	JsConvertValueToString(result, &resultJSString);
 
 	// Project script result back to C++.
-	const wchar_t *resultWC;
+	const char *resultChars;
 	size_t stringLength;
-	JsStringToPointer(resultJSString, &resultWC, &stringLength);
+	JsStringToPointer(resultJSString, &resultChars, &stringLength);
 
-	std::wstring resultW(resultWC);
-	std::cout << std::string(resultW.begin(), resultW.end()) << std::endl;
+	std::string resultStr(resultChars);
+	std::cout << resultStr << std::endl;
 
 	// Dispose runtime
 	JsSetCurrentContext(JS_INVALID_REFERENCE);
