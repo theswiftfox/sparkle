@@ -3,13 +3,11 @@
 
 #include "VulkanExtension.h"
 
+#include "Shader.h"
+
 namespace Engine
 {
-	class ComputePipeline {
-
-
-
-	private:
+	struct ComputePipeline {
 		VkQueue queue;
 		VkCommandPool pool;
 		VkCommandBuffer cmdBuff;
