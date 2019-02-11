@@ -2,6 +2,7 @@
 
 #include "Application.h"
 
+#include "Util.h"
 
 Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular) {
 	uniforms.features = 0x0;

@@ -79,8 +79,8 @@ namespace Engine {
 		/*
 		* Vulkan Resource creation
 		*/
-		void allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) const;
-		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) const;
+		void allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory);
+		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory);
 		
 		void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
 		VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
@@ -158,6 +158,10 @@ namespace Engine {
 
 		VkPhysicalDeviceFeatures requiredFeatures = { };
 
+		struct {
+			uint32_t drawCount;
+		} drawStatistics;
+
 		const std::vector<const char*> validationLayers = {
 			"VK_LAYER_LUNARG_standard_validation"
 		};
@@ -176,6 +180,8 @@ namespace Engine {
 
 		std::vector<VkImage> deviceCreatedImages;
 		std::vector<VkImageView> deviceCreatedImageViews;
+
+		std::vector<VkDeviceMemory*> deviceAllocatedMemory;
 
 		bool updateGeometry = true;
 

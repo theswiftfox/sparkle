@@ -181,7 +181,7 @@ namespace Engine {
 			std::shared_ptr<Node> root;
 			std::vector<std::shared_ptr<Texture>> textureCache;
 			std::map<std::string, std::string> textureFiles;
-			std::map<std::string, std::shared_ptr<Material>> materialCache;
+			std::vector<std::shared_ptr<Material>> materialCache;
 
 			std::mutex sceneMutex;
 			Assimp::Importer importer;
