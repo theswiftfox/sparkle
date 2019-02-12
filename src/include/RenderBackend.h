@@ -18,6 +18,7 @@
 #include "Camera.h"
 #include "Geometry.h"
 #include "AppSettings.h"
+#include "ComputePipeline.h"
 #include "GraphicsPipeline.h"
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -30,9 +31,10 @@ namespace Engine {
 		struct RequiredQueueFamilyIndices {
 			int graphicsFamily = -1;
 			int presentFamily = -1;
+			int computeFamily = -1;
 
 			bool allPresent() const {
-				return graphicsFamily >= 0 && presentFamily >= 0;
+				return graphicsFamily >= 0 && presentFamily >= 0 && computeFamily >= 0;
 			}
 		};
 
@@ -111,12 +113,15 @@ namespace Engine {
 		VkInstance pVulkanInstance;
 		VkPhysicalDevice pPhysicalDevice;
 		VkDevice pVulkanDevice;
+		Vulkan::RequiredQueueFamilyIndices deviceQueueFamilies;
 		VkSwapchainKHR pSwapChain;
 		VkFormat swapChainImageFormat;
 		VkFormat depthFormat;
 		VkExtent2D swapChainExtent;
 		VkCommandPool pCommandPool;
 		std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
+
+		ComputePipeline compute;
 
 		VkQueue pGraphicsQueue;
 		VkQueue pPresentQueue;
@@ -201,6 +206,7 @@ namespace Engine {
 		void createDepthResources();
 		void createMaterialDescriptorSetLayout();
 		void createPipeline();
+		void createComputePipeline();
 		void createDrawBuffer();
 		void createCommandBuffers();
 		void recordDrawCmdBuffers();

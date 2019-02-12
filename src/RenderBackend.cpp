@@ -32,6 +32,7 @@ void RenderBackend::setupVulkan() {
 	createDrawBuffer();
 	createMaterialDescriptorSetLayout();
 	createPipeline();
+	createComputePipeline();
 	setupGui();
 	createCommandBuffers();
 	createSyncObjects();
@@ -373,6 +374,8 @@ void RenderBackend::createVulkanDevice() {
 		throw std::runtime_error("Vulkan device setup failed");
 	}
 
+	deviceQueueFamilies = queueFamilyIndices;
+
 	vkGetDeviceQueue(pVulkanDevice, queueFamilyIndices.graphicsFamily, 0, &pGraphicsQueue);
 	vkGetDeviceQueue(pVulkanDevice, queueFamilyIndices.presentFamily, 0, &pPresentQueue);
 }
@@ -503,6 +506,13 @@ void RenderBackend::createPipeline() {
 	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
 	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
 	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+}
+
+void RenderBackend::createComputePipeline() {
+	VkDeviceQueueCreateInfo queueInfo = {};
+	queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queueInfo.pNext = nullptr;
+	queueInfo.queueFamilyIndex = deviceQueueFamilies.computeFamily;
 }
 
 void RenderBackend::createCommandPool()
@@ -1156,6 +1166,9 @@ Vulkan::RequiredQueueFamilyIndices RenderBackend::getQueueFamilies(VkPhysicalDev
 
 		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			indices.graphicsFamily = static_cast<int>(i);
+		}
+		if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			indices.computeFamily = static_cast<int>(i);
 		}
 
 		VkBool32 presentSupport = false;

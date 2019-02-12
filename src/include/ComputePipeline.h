@@ -17,6 +17,8 @@ namespace Engine
 		VkDescriptorSet descSet;
 		VkPipelineLayout pipelineLayout;
 		VkPipeline pipeline;
+
+		void cleanup();
 	};
 }
 
