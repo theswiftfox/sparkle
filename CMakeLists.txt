@@ -61,6 +61,7 @@ set(SRC
 	src/Application.cpp
 	src/AppSettings.cpp
 	src/Camera.cpp
+	src/ComputePipeline.cpp
 	src/FileReader.cpp
 	src/Geometry.cpp
 	src/main.cpp
@@ -84,6 +85,7 @@ set(HDR
 	src/include/Application.h
 	src/include/AppSettings.h
 	src/include/Camera.h
+	src/include/ComputePipeline.h
 	src/include/FileReader.h
 	src/include/Geometry.h
 	src/include/GraphicsPipeline.h

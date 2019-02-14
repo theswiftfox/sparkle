@@ -5,70 +5,71 @@
 #include "Shader.h"
 #include "VulkanExtension.h"
 
-namespace Engine
-{
-	class GraphicsPipeline
-	{
-	public:
-		struct FrameBufferAtt {
-			vkExt::Image image;
-			VkImageView view;
-			vkExt::SharedMemory* memory;
-		};
-		struct FrameBuffer {
-			int32_t width;
-			int32_t height;
-			VkFramebuffer framebuffer;
-			FrameBufferAtt position;
-			FrameBufferAtt normal;
-			FrameBufferAtt pbrValues;
-			FrameBufferAtt depth;
-			VkRenderPass renderPass;
-		};
+namespace Engine {
+class GraphicsPipeline {
+public:
+    struct FrameBufferAtt {
+        vkExt::Image image;
+        VkImageView view;
+        vkExt::SharedMemory* memory;
+    };
+    struct FrameBuffer {
+        int32_t width;
+        int32_t height;
+        VkFramebuffer framebuffer;
+        FrameBufferAtt position;
+        FrameBufferAtt normal;
+        FrameBufferAtt pbrValues;
+        FrameBufferAtt depth;
+        VkRenderPass renderPass;
+    };
 
-		GraphicsPipeline(VkViewport targetViewport) : viewport(targetViewport) {
-			initPipeline();
-		}
+    GraphicsPipeline(VkViewport targetViewport)
+        : viewport(targetViewport)
+    {
+        initPipeline();
+    }
 
-		void initPipeline();
-		void updateDescriptorSets() const;
-		
-		auto getFramebufferPtr() { return swapChainFramebuffers.data(); }
-		auto getFramebufferPtrs() const { return swapChainFramebuffers; }
-		auto getRenderPassPtr() const { return pRenderPass; }
-		auto getVkGraphicsPipelinePtr() const { return pGraphicsPipeline; }
-		auto getPipelineLayoutPtr() const { return pPipelineLayout; }
-		auto getDescriptorSetPtr() { 
-			if (shader->dynamicBufferDirty) {
-				updateDescriptorSets();
-				shader->dynamicBufferDirty = false;
-			}
-			return pDescriptorSet;
-		}
+    void initPipeline();
+    void updateDescriptorSets() const;
 
-		auto getShaderProgramPtr() const { return shader; }
+    auto getFramebufferPtr() { return swapChainFramebuffers.data(); }
+    auto getFramebufferPtrs() const { return swapChainFramebuffers; }
+    auto getRenderPassPtr() const { return pRenderPass; }
+    auto getVkGraphicsPipelinePtr() const { return pGraphicsPipeline; }
+    auto getPipelineLayoutPtr() const { return pPipelineLayout; }
+    auto getDescriptorSetPtr()
+    {
+        if (shader->dynamicBufferDirty) {
+            updateDescriptorSets();
+            shader->dynamicBufferDirty = false;
+        }
+        return pDescriptorSet;
+    }
 
-		void cleanup();
+    auto getShaderProgramPtr() const { return shader; }
 
-	private:
-		VkDescriptorSetLayout pDescriptorSetLayout{};
-		VkDescriptorSet pDescriptorSet{};
-		VkDescriptorPool pDescriptorPool{};
+    void cleanup();
 
-		VkRenderPass pRenderPass{};
-		VkPipelineLayout pPipelineLayout{};
-		VkPipeline pGraphicsPipeline{};
+private:
+    VkDescriptorSetLayout pDescriptorSetLayout {};
+    VkDescriptorSet pDescriptorSet {};
+    VkDescriptorPool pDescriptorPool {};
 
-		VkViewport viewport{};
+    VkRenderPass pRenderPass {};
+    VkPipelineLayout pPipelineLayout {};
+    VkPipeline pGraphicsPipeline {};
 
-		VkSampler offScreenSampler;
+    VkViewport viewport {};
 
-		std::vector<VkFramebuffer> swapChainFramebuffers;
-		std::vector<FrameBuffer> offscreenBuffers;
-		std::vector<FrameBufferAtt> offscreenAttachments;
+    VkSampler offScreenSampler;
 
-		std::shared_ptr<Engine::Shaders::ShaderProgram> shader;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    std::vector<FrameBuffer> offscreenBuffers;
+    std::vector<FrameBufferAtt> offscreenAttachments;
 
-		void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt *attachment);
-	};
+    std::shared_ptr<Engine::Shaders::ShaderProgram> shader;
+
+    void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt* attachment);
+};
 }

@@ -3,9 +3,9 @@
 
 #include <imgui/imgui.h>
 
+#include <VulkanExtension.h>
 #include <memory>
 #include <vector>
-#include <VulkanExtension.h>
 
 #include <glm/glm.hpp>
 
@@ -13,106 +13,113 @@
 #include <assimp/ProgressHandler.hpp>
 
 namespace Engine {
-	class RenderBackend;
+class RenderBackend;
 
-	class GUI : public Assimp::ProgressHandler {
-	public:
-		struct FrameData {
-			size_t fps;
-		};
-		struct ProgressData {
-			bool isLoading;
-			float value;
-			int currentStep;
-			int maxSteps;
+class GUI : public Assimp::ProgressHandler {
+public:
+    struct FrameData {
+        size_t fps;
+    };
+    struct ProgressData {
+        bool isLoading;
+        float value;
+        int currentStep;
+        int maxSteps;
 
-			ProgressData(bool isLoading = false, float value = 0.0f, int curr = 0, int max = 0) : 
-				isLoading(isLoading), value(value), currentStep(curr), maxSteps(max) { }
-		};
-		struct PushConstants {
-			glm::vec2 scale;
-			glm::vec2 translate;
-		} pushConstants;
+        ProgressData(bool isLoading = false, float value = 0.0f, int curr = 0, int max = 0)
+            : isLoading(isLoading)
+            , value(value)
+            , currentStep(curr)
+            , maxSteps(max)
+        {
+        }
+    };
+    struct PushConstants {
+        glm::vec2 scale;
+        glm::vec2 translate;
+    } pushConstants;
 
-		GUI();
+    GUI();
 
-		float getExposure() const { return exposure; }
-		float getGamma() const { return gamma; }
+    float getExposure() const { return exposure; }
+    float getGamma() const { return gamma; }
 
-		void toggleOptions() {
-			showOptions = !showOptions;
-		}
+    void toggleOptions()
+    {
+        showOptions = !showOptions;
+    }
 
-	//	~GUI();
+    //	~GUI();
 
-		bool Update(float percentage = -1.0);
-		void UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/);
+    bool Update(float percentage = -1.0);
+    void UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/);
 
-		void updateBuffers(const std::vector<VkFence>& fences);
-		void updateFrame(const FrameData frameData);
+    void updateBuffers(const std::vector<VkFence>& fences);
+    void updateFrame(const FrameData frameData);
 
-		void init(float width, float height, VkRenderPass renderPass);
-		void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-		
-		void cleanup() {
-			fontTex->cleanup();
-			fontTex.reset();
-			vertexBuffer.destroy(true);
-			delete(vertexMemory);
-			indexBuffer.destroy(true);
-			delete(indexMemory);
+    void init(float width, float height, VkRenderPass renderPass);
+    void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 
-			vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-			vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    void cleanup()
+    {
+        fontTex->cleanup();
+        fontTex.reset();
+        vertexBuffer.destroy(true);
+        delete (vertexMemory);
+        indexBuffer.destroy(true);
+        delete (indexMemory);
 
-			vkDestroyPipeline(device, pipeline, nullptr);
-			vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-			vkDestroyPipelineCache(device, pipelineCache, nullptr);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-			vkDestroyShaderModule(device, vtxModule, nullptr);
-			vkDestroyShaderModule(device, frgModule, nullptr);
-		}
-	private:
-		static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
-		static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
+        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyPipelineCache(device, pipelineCache, nullptr);
 
-		VkShaderModule vtxModule;
-		VkShaderModule frgModule;
+        vkDestroyShaderModule(device, vtxModule, nullptr);
+        vkDestroyShaderModule(device, frgModule, nullptr);
+    }
 
-		std::shared_ptr<RenderBackend> renderBackend;
+private:
+    static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
+    static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
 
-		std::shared_ptr<Texture> fontTex;
-		vkExt::Buffer vertexBuffer;
-		vkExt::SharedMemory* vertexMemory = nullptr;
-		vkExt::Buffer indexBuffer;
-		vkExt::SharedMemory* indexMemory = nullptr;
-		uint64_t vtxCount = 0;
-		uint64_t idxCount = 0;
+    VkShaderModule vtxModule;
+    VkShaderModule frgModule;
 
-		VkRenderPass renderPass;
-		VkPipelineCache pipelineCache;
-		VkPipelineLayout pipelineLayout;
-		VkPipeline pipeline;
+    std::shared_ptr<RenderBackend> renderBackend;
 
-		VkDescriptorPool descriptorPool;
-		VkDescriptorSetLayout descriptorSetLayout;
-		VkDescriptorSet descriptorSet;
+    std::shared_ptr<Texture> fontTex;
+    vkExt::Buffer vertexBuffer;
+    vkExt::SharedMemory* vertexMemory = nullptr;
+    vkExt::Buffer indexBuffer;
+    vkExt::SharedMemory* indexMemory = nullptr;
+    uint64_t vtxCount = 0;
+    uint64_t idxCount = 0;
 
-		VkDevice device = VK_NULL_HANDLE;
+    VkRenderPass renderPass;
+    VkPipelineCache pipelineCache;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
 
-		float windowWidth, windowHeight;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkDescriptorSet descriptorSet;
 
-		float gamma = 2.2f;
-		float exposure = 1.0f;
+    VkDevice device = VK_NULL_HANDLE;
 
-		bool showOptions = false;
+    float windowWidth, windowHeight;
 
-		static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
-		void initResources();
+    float gamma = 2.2f;
+    float exposure = 1.0f;
 
-		ProgressData assimpProgress;
+    bool showOptions = false;
 
-	};
+    static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
+    void initResources();
+
+    ProgressData assimpProgress;
+};
 }
 
 #endif
