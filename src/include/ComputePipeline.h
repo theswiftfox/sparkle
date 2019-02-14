@@ -5,21 +5,22 @@
 
 #include "Shader.h"
 
-namespace Engine
-{
-	struct ComputePipeline {
-		VkQueue queue;
-		VkCommandPool pool;
-		VkCommandBuffer cmdBuff;
-		VkFence fence;
-		VkSemaphore sem;
-		VkDescriptorSetLayout descSetLayout;
-		VkDescriptorSet descSet;
-		VkPipelineLayout pipelineLayout;
-		VkPipeline pipeline;
+namespace Engine {
+struct ComputePipeline {
+    VkQueue queue;
+    VkCommandPool cmdPool;
+    VkCommandBuffer cmdBuff;
+    VkFence fence;
+    VkSemaphore sem;
+    VkDescriptorPool descPool;
+    VkDescriptorSetLayout descSetLayout;
+    VkDescriptorSet descSet;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
 
-		void cleanup();
-	};
+    void initialize(uint32_t queueIndex);
+    void cleanup();
+};
 }
 
 #endif
