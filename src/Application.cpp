@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-using namespace Engine;
+using namespace Sparkle;
 
 void App::initialize(std::string config)
 {
@@ -30,7 +30,7 @@ void App::initialize(std::string config)
 
     createWindow();
 
-    pRenderer = std::make_unique<Engine::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
+    pRenderer = std::make_unique<Sparkle::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
     pRenderer->initialize(pSettings, pSettings->withValidationLayer());
 
     pInputController = std::make_shared<InputController>(pWindow, pCamera);

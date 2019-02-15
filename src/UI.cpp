@@ -6,16 +6,16 @@
 #include <iomanip>
 #include <sstream>
 
-using namespace Engine;
+using namespace Sparkle;
 
-VkPipelineShaderStageCreateInfo Engine::GUI::loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage)
+VkPipelineShaderStageCreateInfo Sparkle::GUI::loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage)
 {
     VkPipelineShaderStageCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     info.stage = stage;
     info.pName = "main";
 
-    auto shaderData = Engine::Tools::FileReader::readFile(shaderName);
+    auto shaderData = Sparkle::Tools::FileReader::readFile(shaderName);
     auto module = Shaders::ShaderProgram::createShaderModule(shaderData);
 
     info.module = module;

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void Engine::Logger::toStdout(std::string msg, std::string func)
+void Sparkle::Logger::toStdout(std::string msg, std::string func)
 {
     {
         std::cout << msg;

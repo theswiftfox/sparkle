@@ -12,9 +12,9 @@
 
 #include <vulkan/vulkan.h>
 
-namespace sparkle {
-namespace vk {
-    namespace init {
+namespace Sparkle {
+namespace VK {
+    namespace Init {
         inline VkCommandBufferAllocateInfo commandBufferInfo(VkCommandPool pool, VkCommandBufferLevel level, uint32_t count)
         {
             VkCommandBufferAllocateInfo info = {};

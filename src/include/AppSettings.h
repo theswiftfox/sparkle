@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace Engine {
+namespace Sparkle {
 class Settings {
 public:
     Settings(std::string settingsFile)

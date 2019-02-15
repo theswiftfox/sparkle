@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-std::vector<char> Engine::Tools::FileReader::readFile(const std::string& fileName)
+std::vector<char> Sparkle::Tools::FileReader::readFile(const std::string& fileName)
 {
     std::ifstream file(fileName, std::ios::ate | std::ios::binary); // read the file in binary back to front
 
@@ -36,7 +36,7 @@ std::vector<char> Engine::Tools::FileReader::readFile(const std::string& fileNam
     return buff;
 }
 
-std::vector<std::string> Engine::Tools::FileReader::readFileLines(const std::string& fileName)
+std::vector<std::string> Sparkle::Tools::FileReader::readFileLines(const std::string& fileName)
 {
     std::ifstream file(fileName); // read the file in binary back to front
 
@@ -53,16 +53,16 @@ std::vector<std::string> Engine::Tools::FileReader::readFileLines(const std::str
     return lines;
 }
 
-void Engine::Tools::FileReader::ImageFile::free()
+void Sparkle::Tools::FileReader::ImageFile::free()
 {
     if (imageFileType == SPARKLE_IMAGE_OTHER && imageData) {
         stbi_image_free(imageData);
     }
 }
 
-Engine::Tools::FileReader::ImageFile Engine::Tools::FileReader::loadImage(std::string imagePath)
+Sparkle::Tools::FileReader::ImageFile Sparkle::Tools::FileReader::loadImage(std::string imagePath)
 {
-    Engine::Tools::FileReader::ImageFile image;
+    Sparkle::Tools::FileReader::ImageFile image;
     image.mipCount = -1;
     image.size = -1;
     image.imageFileType = SPARKLE_IMAGE_OTHER;

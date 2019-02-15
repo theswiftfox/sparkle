@@ -10,7 +10,7 @@
 
 #include "Lights.h"
 
-namespace Engine {
+namespace Sparkle {
 class App;
 namespace Shaders {
 

@@ -3,7 +3,7 @@
 #include "Application.h"
 #include "VulkanInitializers.h"
 
-using namespace Engine;
+using namespace Sparkle;
 
 void ComputePipeline::initialize(uint32_t queueIndex)
 {

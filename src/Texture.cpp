@@ -4,7 +4,7 @@
 #include "FileReader.h"
 #include "stb_image.h"
 
-using namespace Engine;
+using namespace Sparkle;
 
 Texture::Texture(std::string filePath, size_t typeID)
     : filePath(filePath)
@@ -26,7 +26,7 @@ Texture::Texture(std::string filePath, size_t typeID)
     tex.free();
 }
 
-Engine::Texture::Texture(const aiTexture* tex, size_t typeID, std::string id)
+Sparkle::Texture::Texture(const aiTexture* tex, size_t typeID, std::string id)
     : filePath(id)
     , typeID(typeID)
 {

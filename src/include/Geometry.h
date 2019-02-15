@@ -3,16 +3,11 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-#include <glm/glm.hpp>
-
-#include "Material.h"
-#include "Texture.h"
-
+#include <array>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
+#include <glm/glm.hpp>
 
-#include <array>
 #include <atomic>
 #include <future>
 #include <memory>
@@ -20,54 +15,14 @@
 #include <string>
 #include <vector>
 
-namespace Engine {
+#include "Material.h"
+#include "SparkleTypes.h"
+#include "Texture.h"
+
+namespace Sparkle {
 class App;
 
 namespace Geometry {
-    typedef struct Vertex {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 bitangent;
-        glm::vec2 texCoord;
-
-        static VkVertexInputBindingDescription getBindingDescription()
-        {
-            const VkVertexInputBindingDescription binding = {
-                0,
-                sizeof(Vertex),
-                VK_VERTEX_INPUT_RATE_VERTEX
-            };
-            return binding;
-        }
-
-        static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions()
-        {
-            const std::array<VkVertexInputAttributeDescription, 5> attributes = { { { 0,
-                                                                                        0,
-                                                                                        VK_FORMAT_R32G32B32_SFLOAT,
-                                                                                        offsetof(Vertex, position) },
-                { 1,
-                    0,
-                    VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(Vertex, normal) },
-                { 2,
-                    0,
-                    VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(Vertex, tangent) },
-                { 3,
-                    0,
-                    VK_FORMAT_R32G32B32_SFLOAT,
-                    offsetof(Vertex, bitangent) },
-                { 4,
-                    0,
-                    VK_FORMAT_R32G32_SFLOAT,
-                    offsetof(Vertex, texCoord) } } };
-            return attributes;
-        }
-
-    } Vertex;
-
     class Node {
     public:
         Node(glm::mat4 modelMat = glm::mat4(1.0f), std::shared_ptr<Node> parentNode = nullptr)

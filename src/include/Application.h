@@ -18,7 +18,7 @@ constexpr auto WINDOW_HEIGHT = 768;
 
 #define APP_NAME "Sparkle Engine"
 
-namespace Engine {
+namespace Sparkle {
 class App {
 public:
     static App& getHandle()
@@ -49,7 +49,7 @@ private:
     std::shared_ptr<InputController> pInputController = nullptr;
     std::shared_ptr<Geometry::Scene> pScene;
 
-    std::shared_ptr<Engine::RenderBackend> pRenderer;
+    std::shared_ptr<Sparkle::RenderBackend> pRenderer;
 
     int windowWidth = WINDOW_WIDTH;
     int windowHeight = WINDOW_HEIGHT;

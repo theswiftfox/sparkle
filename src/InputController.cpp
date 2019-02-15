@@ -34,12 +34,12 @@ void InputController::glfwKeyCallback(GLFWwindow* window, int key, int scancode,
 {
     if (key == GLFW_KEY_F5) {
         if (action == GLFW_RELEASE) {
-            Engine::App::getHandle().getRenderBackend()->reloadShaders();
+            Sparkle::App::getHandle().getRenderBackend()->reloadShaders();
         }
     }
     if (key == GLFW_KEY_F3) {
         if (action == GLFW_RELEASE) {
-            Engine::App::getHandle().getRenderBackend()->getUiHandle()->toggleOptions();
+            Sparkle::App::getHandle().getRenderBackend()->getUiHandle()->toggleOptions();
         }
     }
 }
