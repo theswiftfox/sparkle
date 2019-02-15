@@ -23,7 +23,7 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-using namespace Engine;
+using namespace Sparkle;
 using namespace Geometry;
 
 static bool isImageExtension(std::string ext)

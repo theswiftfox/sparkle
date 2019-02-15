@@ -25,7 +25,7 @@ void _alignedFree(void* data)
 #endif
 }
 
-using namespace Engine::Shaders;
+using namespace Sparkle::Shaders;
 
 ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources)
 {
@@ -67,7 +67,7 @@ ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources)
 
 void ShaderProgram::cleanup() const
 {
-    const auto device = Engine::App::getHandle().getRenderBackend()->getDevice();
+    const auto device = Sparkle::App::getHandle().getRenderBackend()->getDevice();
     if (vertexShader) {
         vkDestroyShaderModule(device, vertexShader, nullptr);
     }
@@ -155,7 +155,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() co
 
 void ShaderProgram::createUniformBuffer()
 {
-    const auto& renderer = Engine::App::getHandle().getRenderBackend();
+    const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
 
     VkPhysicalDeviceProperties props;
     vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
@@ -176,7 +176,7 @@ void ShaderProgram::createUniformBuffer()
 
 void ShaderProgram::createDynamicBuffer(VkDeviceSize size)
 {
-    const auto& renderer = Engine::App::getHandle().getRenderBackend();
+    const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
 
     if (pDynamicBuffer.buffer) {
         pDynamicBuffer.destroy(true);
@@ -206,7 +206,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size)
     // getDescriptorInfos();
 }
 
-void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Engine::Geometry::Node>>& meshes)
+void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Sparkle::Geometry::Node>>& meshes)
 {
     if (!(pDynamicBuffer.buffer) || meshes.size() * dUboAlignment > dynamicUboDataSize) {
         createDynamicBuffer(meshes.size());
@@ -247,7 +247,7 @@ VkShaderModule ShaderProgram::createShaderModule(const std::vector<char>& code)
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(Engine::App::getHandle().getRenderBackend()->getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+    if (vkCreateShaderModule(Sparkle::App::getHandle().getRenderBackend()->getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         throw std::runtime_error("Shader Module creation failed!");
     }
     return shaderModule;

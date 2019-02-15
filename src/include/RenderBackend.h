@@ -19,6 +19,7 @@
 #include "ComputePipeline.h"
 #include "Geometry.h"
 #include "GraphicsPipeline.h"
+#include "SparkleTypes.h"
 #include "UI.h"
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -26,25 +27,7 @@
 
 #define INTEL_GPU_BUILD // TODO: change to dynamic check if intel gpu..
 
-namespace Engine {
-namespace Vulkan {
-    struct RequiredQueueFamilyIndices {
-        int graphicsFamily = -1;
-        int presentFamily = -1;
-        int computeFamily = -1;
-
-        bool allPresent() const
-        {
-            return graphicsFamily >= 0 && presentFamily >= 0 && computeFamily >= 0;
-        }
-    };
-
-    struct SwapChainSupportInfo {
-        VkSurfaceCapabilitiesKHR capabilities {};
-        std::vector<VkSurfaceFormatKHR> formats {};
-        std::vector<VkPresentModeKHR> presentModes {};
-    };
-}
+namespace Sparkle {
 
 constexpr auto INITIAL_VERTEX_COUNT = 1000;
 

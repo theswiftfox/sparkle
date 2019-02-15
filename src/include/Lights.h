@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-namespace Engine {
+namespace Sparkle {
 namespace Lights {
     enum LTypeFlags {
         SPARKLE_LIGHT_TYPE_UNDEFINED = 0x0,

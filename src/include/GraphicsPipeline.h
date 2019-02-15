@@ -5,7 +5,7 @@
 #include "Shader.h"
 #include "VulkanExtension.h"
 
-namespace Engine {
+namespace Sparkle {
 class GraphicsPipeline {
 public:
     struct FrameBufferAtt {
@@ -68,7 +68,7 @@ private:
     std::vector<FrameBuffer> offscreenBuffers;
     std::vector<FrameBufferAtt> offscreenAttachments;
 
-    std::shared_ptr<Engine::Shaders::ShaderProgram> shader;
+    std::shared_ptr<Sparkle::Shaders::ShaderProgram> shader;
 
     void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt* attachment);
 };

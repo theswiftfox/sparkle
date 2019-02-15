@@ -17,7 +17,7 @@
 
 class Camera {
 public:
-    Camera(std::shared_ptr<Engine::Settings> settings);
+    Camera(std::shared_ptr<Sparkle::Settings> settings);
     void updateAspect(float aspectRatio);
     void resetAspect();
 
@@ -45,7 +45,7 @@ public:
     bool changed() const;
 
 private:
-    std::shared_ptr<Engine::Settings> gameSettings;
+    std::shared_ptr<Sparkle::Settings> gameSettings;
 
     float hAngle = (float)M_PI_4;
     float vAngle = 0.0f;

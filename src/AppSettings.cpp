@@ -2,9 +2,9 @@
 
 #include "SimpleIni.h"
 
-using namespace Engine;
+using namespace Sparkle;
 
-bool Engine::Settings::load()
+bool Sparkle::Settings::load()
 {
     CSimpleIni ini;
     ini.SetUnicode();

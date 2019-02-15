@@ -44,7 +44,7 @@ int main(const int argc, char** argv)
     JsSetCurrentContext(JS_INVALID_REFERENCE);
     JsDisposeRuntime(runtime);
 
-    auto& app = Engine::App::getHandle();
+    auto& app = Sparkle::App::getHandle();
 
     try {
         std::string config = "assets/settings.ini";

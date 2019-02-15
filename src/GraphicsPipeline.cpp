@@ -6,7 +6,7 @@
 #include <VulkanExtension.h>
 #include <vulkan/vulkan.h>
 
-using namespace Engine;
+using namespace Sparkle;
 
 void GraphicsPipeline::initPipeline()
 {

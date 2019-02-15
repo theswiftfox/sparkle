@@ -3,7 +3,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
-using namespace Engine;
+using namespace Sparkle;
 
 Camera::Camera(std::shared_ptr<Settings> settings)
     : cameraPos(0.0f)

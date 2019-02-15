@@ -12,7 +12,7 @@
 #include "Texture.h"
 #include <assimp/ProgressHandler.hpp>
 
-namespace Engine {
+namespace Sparkle {
 class RenderBackend;
 
 class GUI : public Assimp::ProgressHandler {

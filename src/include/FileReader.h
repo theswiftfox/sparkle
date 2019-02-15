@@ -6,7 +6,7 @@
 
 #include <gli/texture2d.hpp>
 
-namespace Engine {
+namespace Sparkle {
 namespace Tools {
     namespace FileReader {
         enum ImageType {

@@ -6,7 +6,7 @@
 #include <assimp/texture.h>
 #include <string>
 
-namespace Engine {
+namespace Sparkle {
 class Texture {
 public:
     Texture(std::string filePath, size_t typeID);

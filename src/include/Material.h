@@ -22,7 +22,7 @@
 #define BINDING_ROUGHNESS 3
 #define BINDING_METALLIC 4
 
-namespace Engine {
+namespace Sparkle {
 enum MaterialFeatureFlags {
     SPARKLE_MAT_NORMAL_MAP = 0x010,
     SPARKLE_MAT_PBR = 0x100

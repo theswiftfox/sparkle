@@ -5,8 +5,13 @@
 
 #include "Shader.h"
 
-namespace Engine {
+namespace Sparkle {
 struct ComputePipeline {
+    struct UBO {
+        glm::mat4 view;
+        glm::mat4 proj;
+    } ubo;
+
     VkQueue queue;
     VkCommandPool cmdPool;
     VkCommandBuffer cmdBuff;

@@ -7,7 +7,7 @@
 
 #include "VulkanInitializers.h"
 
-using namespace Engine;
+using namespace Sparkle;
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
 void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
@@ -42,7 +42,7 @@ void RenderBackend::setupVulkan()
     createSyncObjects();
 }
 
-Engine::RenderBackend::RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene)
+RenderBackend::RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene)
 {
     pWindow = windowPtr;
     appName = name;
@@ -297,7 +297,7 @@ void RenderBackend::createVulkanInstance()
         nullptr,
         appName.c_str(),
         VK_MAKE_VERSION(0, 1, 0),
-        "Ghost Engine",
+        "Sparkle Engine",
         VK_MAKE_VERSION(0, 0, 0),
         VK_API_VERSION_1_0
     };
@@ -524,10 +524,10 @@ void RenderBackend::createComputePipeline()
     compute.initialize(deviceQueueFamilies.computeFamily);
 
     std::array<VkWriteDescriptorSet, 4> writes = {
-        sparkle::vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &pInstanceBuffer.descriptor),
-        sparkle::vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &pIndirectCommandsBuffer.descriptor),
-        sparkle::vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, nullptr), // todo
-        sparkle::vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3, &pIndirectDrawCountBuffer.descriptor)
+        Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &pInstanceBuffer.descriptor),
+        Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &pIndirectCommandsBuffer.descriptor),
+        Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, nullptr), // todo
+        Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3, &pIndirectDrawCountBuffer.descriptor)
     };
 
     vkUpdateDescriptorSets(pVulkanDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);

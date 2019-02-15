@@ -4,19 +4,19 @@
 
 #include "Util.h"
 
-Engine::Material::Material(std::vector<std::shared_ptr<Texture>> textures, float specular)
+Sparkle::Material::Material(std::vector<std::shared_ptr<Sparkle::Texture>> textures, float specular)
 {
     uniforms.features = 0x0;
     uniforms.specular = specular;
     initTextureMaterial(textures);
 }
 
-Engine::Material::MaterialUniforms Engine::Material::getUniforms() const
+Sparkle::Material::MaterialUniforms Sparkle::Material::getUniforms() const
 {
     return uniforms;
 }
 
-void Engine::Material::cleanup()
+void Sparkle::Material::cleanup()
 {
     if (!initialized)
         return;
@@ -25,7 +25,7 @@ void Engine::Material::cleanup()
     vkDestroyDescriptorPool(device, pDescriptorPool, nullptr);
 }
 
-void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>> textures)
+void Sparkle::Material::initTextureMaterial(std::vector<std::shared_ptr<Sparkle::Texture>> textures)
 {
     for (const auto& tex : textures) {
         this->textures[tex->type()] = tex; // todo: maybe use a vec to allow multiple of the same type
@@ -70,7 +70,7 @@ void Engine::Material::initTextureMaterial(std::vector<std::shared_ptr<Texture>>
     initialized = true;
 }
 
-void Engine::Material::updateDescriptorSets()
+void Sparkle::Material::updateDescriptorSets()
 {
     std::vector<VkWriteDescriptorSet> writes;
     if (textures.find(TEX_TYPE_SPECULAR) == textures.end()) {
