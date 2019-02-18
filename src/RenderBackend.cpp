@@ -514,6 +514,7 @@ void RenderBackend::createPipeline()
 
 void RenderBackend::createComputePipeline()
 {
+	return;
 	compute.initialize(deviceQueueFamilies.computeFamily);
 
 	std::array<VkWriteDescriptorSet, 4> writes = {
