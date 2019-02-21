@@ -1,6 +1,6 @@
 # Sparkle-Engine  
 
-Vulkan based rendering engine. 
+Vulkan based rendering engine for Windows and Linux 
 
 ## Planned
 ### Major TODO  
