@@ -514,7 +514,6 @@ void RenderBackend::createPipeline()
 
 void RenderBackend::createComputePipeline()
 {
-	return;
 	compute.initialize(deviceQueueFamilies.computeFamily);
 
 	std::array<VkWriteDescriptorSet, 4> writes = {
@@ -522,7 +521,8 @@ void RenderBackend::createComputePipeline()
 		    &pInstanceBuffer.descriptor),
 		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
 		    &pIndirectCommandsBuffer.descriptor),
-		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, nullptr), // todo
+		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2,
+		    &compute.uboBuff.descriptor),
 		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3,
 		    &pIndirectDrawCountBuffer.descriptor)
 	};

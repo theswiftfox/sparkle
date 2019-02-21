@@ -38,6 +38,9 @@ void ComputePipeline::initialize(uint32_t queueIndex)
 
 	auto allocInfo = Sparkle::VK::Init::descriptorSetAllocateInfo(descPool, &descSetLayout, 1);
 	VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &descSet), "DescriptorSet allocation for Compute failed!");
+
+	uboMem = new vkExt::SharedMemory();
+	App::getHandle().getRenderBackend()->createBuffer(sizeof(UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uboBuff, uboMem);
 }
 
 void ComputePipeline::cleanup()
@@ -48,4 +51,7 @@ void ComputePipeline::cleanup()
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
 	vkDestroyDescriptorPool(device, descPool, nullptr);
+
+	uboBuff.destroy(true);
+	delete (uboMem);
 }

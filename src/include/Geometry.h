@@ -30,14 +30,11 @@ namespace Geometry {
 		glm::vec3 bitangent;
 		glm::vec2 texCoord;
 
-		static VkVertexInputBindingDescription getBindingDescription()
+		static std::array<VkVertexInputBindingDescription, 2> getBindingDescriptions()
 		{
-			const VkVertexInputBindingDescription binding = {
-				0,
-				sizeof(Vertex),
-				VK_VERTEX_INPUT_RATE_VERTEX
-			};
-			return binding;
+			const std::array<VkVertexInputBindingDescription, 2> bindings = { { { 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX },
+				{ 1, sizeof(Draw::InstanceData), VK_VERTEX_INPUT_RATE_INSTANCE } } };
+			return bindings;
 		}
 
 		static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions()

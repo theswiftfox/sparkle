@@ -22,6 +22,8 @@ struct ComputePipeline {
     VkDescriptorSet descSet;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
+    vkExt::Buffer uboBuff;
+    vkExt::SharedMemory* uboMem;
 
     void initialize(uint32_t queueIndex);
     void cleanup();
