@@ -1,0 +1,75 @@
+//--------------------------------------------------------------------------------------
+// File: cull.comp
+//
+// This file contains the GLSL Compute Shader to perform occlusion culling
+// 
+// Copyright (c) 2019 Patrick Gantner. All rights reserved.
+//--------------------------------------------------------------------------------------
+#version 450
+
+struct MeshData {
+	mat4 model;
+	uint firstIndex;
+	uint indexCount;
+};
+
+layout(binding = 0, std140) buffer Objects {
+    MeshData Meshes[ ];
+};
+
+struct DrawCommandIndexIndirect {
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	uint vertexOffset;
+	uint firstInstance;
+};
+
+layout(binding=1, std430) writeonly buffer IndirectDraws {
+    DrawCommandIndexIndirect indirectDraws[ ];
+};
+
+layout(binding=2) uniform UBO {
+	vec4 frustumCube[6];
+} ubo;
+
+layout(binding=3) buffer OutBuffer {
+    uint drawCount;
+} outBuffer;
+
+layout(local_size_x = 16) in;
+
+bool checkFrustum(vec4 pos, float rad) {
+	for (uint i = 0; i < 6; ++i) {
+		if (dot(pos, ubo.frustumCube[i]) + rad < 0.0) {
+			return false;
+		}
+	}
+	return true;
+}
+
+layout(local_size_x = 16) in;
+
+void main() {
+	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+
+	if (idx == 0) {
+		atomicExchange(outBuffer.drawCount, 0);
+	}
+
+	mat4 iModel = Meshes[idx].model;
+	vec4 pos = iModel[3];
+
+	if (checkFrustum(pos, 1.0f)) {
+		indirectDraws[idx].instanceCount = 1;
+		indirectDraws[idx].firstIndex = Meshes[idx].firstIndex;
+		indirectDraws[idx].indexCount = Meshes[idx].indexCount;
+		indirectDraws[idx].vertexOffset = 0;
+		indirectDraws[idx].firstInstance = 0;
+
+		atomicAdd(outBuffer.drawCount, 1);
+	}
+	else {
+		indirectDraws[idx].instanceCount = 0;
+	}
+}

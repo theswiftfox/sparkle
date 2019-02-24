@@ -107,7 +107,8 @@ set(SHADERS
 	shaders/ui.vert
 	shaders/deferred.vert.hlsl
 	shaders/deferred.frag.hlsl
-	shaders/cull.comp.hlsl
+	# shaders/cull.comp.hlsl
+	shaders/cull.comp
 )
 
 set(ASSETS

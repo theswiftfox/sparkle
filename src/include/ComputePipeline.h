@@ -7,9 +7,13 @@
 
 namespace Sparkle {
 struct ComputePipeline {
+	struct PushConstants {
+		uint workGroupSize;
+		uint workGroupCount;
+	};
+
 	struct UBO {
-		glm::mat4 view;
-		glm::mat4 proj;
+		glm::vec4 frustumPlanes[6];
 	} ubo;
 
 	struct MeshData {
@@ -21,8 +25,8 @@ struct ComputePipeline {
 	VkQueue queue;
 	VkCommandPool cmdPool;
 	std::vector<VkCommandBuffer> cmdBuffers;
-	VkFence fence;
-	VkSemaphore sem;
+	std::vector<VkFence> fences;
+	std::vector<VkSemaphore> semaphores;
 	VkDescriptorPool descPool;
 	VkDescriptorSetLayout descSetLayout;
 	VkDescriptorSet descSet;
@@ -35,6 +39,8 @@ struct ComputePipeline {
 
 	void initialize(uint32_t queueIndex, uint32_t cmdBuffCount);
 	void cleanup();
+
+	void updateUBO(const UBO& ubo);
 };
 } // namespace Sparkle
 
