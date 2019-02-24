@@ -16,7 +16,7 @@ VkPipelineShaderStageCreateInfo Sparkle::GUI::loadUiShader(const std::string sha
     info.pName = "main";
 
     auto shaderData = Sparkle::Tools::FileReader::readFile(shaderName);
-    auto module = Shaders::ShaderProgram::createShaderModule(shaderData);
+    auto module = Shaders::createShaderModule(shaderData);
 
     info.module = module;
     return info;

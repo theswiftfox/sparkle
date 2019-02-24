@@ -33,208 +33,213 @@ constexpr auto INITIAL_VERTEX_COUNT = 1000;
 
 class RenderBackend {
 public:
-    RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene);
+	RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene);
 
-    void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
-    void draw(double deltaT);
-    void updateUniforms();
-    void updateUiData(GUI::FrameData uiData);
+	void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
+	void draw(double deltaT);
+	void updateUniforms();
+	void updateUiData(GUI::FrameData uiData);
 
-    void cleanup();
-    void reloadShaders();
+	void cleanup();
+	void reloadShaders();
 
-    Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
+	Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
-    std::shared_ptr<GUI> getUiHandle() const { return pUi; }
-    void updateDrawCommand();
+	std::shared_ptr<GUI> getUiHandle() const { return pUi; }
+	void updateDrawCommand();
 
-    VkDevice getDevice() const { return pVulkanDevice; }
-    VkPhysicalDevice getPhysicalDevice() const { return pPhysicalDevice; }
-    VkCommandPool getCommandPool() const { return pCommandPool; }
-    VkQueue getDefaultQueue() const { return pGraphicsQueue; }
-    VkFormat getImageFormat() const { return swapChainImageFormat; }
-    VkFormat getDepthFormat() const
-    {
-        return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    }
-    VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
-    const std::vector<VkImageView>& getSwapChainImageViewsRef() const { return swapChainImageViews; }
-    const std::vector<VkImageView>& getDepthImageViewsRef() const { return depthImageViews; }
-    const VkDescriptorSetLayout& getMaterialDescriptorSetLayout() const { return pMaterialDescriptorSetLayout; }
-    const size_t getMaterialTextureLimit() const { return materialTextureLimit; }
+	VkDevice getDevice() const { return pVulkanDevice; }
+	VkPhysicalDevice getPhysicalDevice() const { return pPhysicalDevice; }
+	VkCommandPool getCommandPool() const { return pCommandPool; }
+	VkQueue getDefaultQueue() const { return pGraphicsQueue; }
+	VkFormat getImageFormat() const { return swapChainImageFormat; }
+	VkFormat getDepthFormat() const
+	{
+		return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	}
+	VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
+	const std::vector<VkImageView>& getSwapChainImageViewsRef() const { return swapChainImageViews; }
+	const std::vector<VkImageView>& getDepthImageViewsRef() const { return depthImageViews; }
+	const VkDescriptorSetLayout& getMaterialDescriptorSetLayout() const { return pMaterialDescriptorSetLayout; }
+	const size_t getMaterialTextureLimit() const { return materialTextureLimit; }
 
-    /*
+	/*
 		* Vulkan Resource creation
 		*/
-    void allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) const;
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) const;
+	void allocateMemory(VkDeviceSize size, VkMemoryPropertyFlags properties, uint32_t memoryTypeFilterBits, vkExt::SharedMemory* memory) const;
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Buffer& buffer, vkExt::SharedMemory* bufferMemory) const;
 
-    void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
-    VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuff = nullptr) const;
+	void createImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, vkExt::Image& image, vkExt::SharedMemory* imageMemory, VkDeviceSize memOffset = 0, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
+	VkImageView createImageView2D(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuff = nullptr) const;
 
-    VkCommandBuffer beginOneTimeCommand() const;
-    void endOneTimeCommand(VkCommandBuffer buffer) const;
+	VkCommandBuffer beginOneTimeCommand() const;
+	void endOneTimeCommand(VkCommandBuffer buffer) const;
 
 private:
-    std::string appName;
+	std::string appName;
 
-    std::shared_ptr<Camera> pCamera = nullptr;
-    std::shared_ptr<Geometry::Scene> pScene = nullptr;
-    std::shared_ptr<GUI> pUi = nullptr;
+	std::shared_ptr<Camera> pCamera = nullptr;
+	std::shared_ptr<Geometry::Scene> pScene = nullptr;
+	std::shared_ptr<GUI> pUi = nullptr;
 
-    Shaders::FragmentShaderUniforms fragmentUBO;
+	Shaders::ShaderProgram::FragmentShaderUniforms fragmentUBO;
 
-    std::future<void> levelLoadFuture;
+	std::future<void> levelLoadFuture;
 
-    GLFWwindow* pWindow;
-    int viewportWidth, viewportHeight;
+	GLFWwindow* pWindow;
+	int viewportWidth, viewportHeight;
 
-    VkDebugReportCallbackEXT pCallback;
-    VkSurfaceKHR pSurface;
+	VkDebugReportCallbackEXT pCallback;
+	VkSurfaceKHR pSurface;
 
-    VkSurfaceFormatKHR surfaceFormat;
-    VkPresentModeKHR presentMode;
+	VkSurfaceFormatKHR surfaceFormat;
+	VkPresentModeKHR presentMode;
 
-    VkInstance pVulkanInstance;
-    VkPhysicalDevice pPhysicalDevice;
-    VkDevice pVulkanDevice;
-    Vulkan::RequiredQueueFamilyIndices deviceQueueFamilies;
-    VkSwapchainKHR pSwapChain;
-    VkFormat swapChainImageFormat;
-    VkFormat depthFormat;
-    VkExtent2D swapChainExtent;
-    VkCommandPool pCommandPool;
-    std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
+	VkInstance pVulkanInstance;
+	VkPhysicalDevice pPhysicalDevice;
+	VkPhysicalDeviceFeatures deviceFeatures;
+	VkDevice pVulkanDevice;
+	Vulkan::RequiredQueueFamilyIndices deviceQueueFamilies;
+	VkSwapchainKHR pSwapChain;
+	VkFormat swapChainImageFormat;
+	VkFormat depthFormat;
+	VkExtent2D swapChainExtent;
+	VkCommandPool pCommandPool;
+	std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
 
-    ComputePipeline compute;
+	ComputePipeline compute;
+	bool computeEnabled = true;
 
-    VkQueue pGraphicsQueue;
-    VkQueue pPresentQueue;
+	VkQueue pGraphicsQueue;
+	VkQueue pPresentQueue;
 
-    // Buffer and associated memory for Geometry used in the main draw pass
-    vkExt::Buffer pDrawBuffer;
-    vkExt::SharedMemory* ppDrawMemory;
-    // some attributes used for the shared vertex and index buffer memory
-    VkDeviceSize maxVertexSize = INITIAL_VERTEX_COUNT * sizeof(Geometry::Vertex);
-    VkDeviceSize lastVertexOffset;
-    VkDeviceSize maxIndexSize = INITIAL_VERTEX_COUNT * sizeof(uint32_t);
-    VkDeviceSize indexBufferOffset;
-    VkDeviceSize lastIndexOffset;
+	// Buffer and associated memory for Geometry used in the main draw pass
+	vkExt::Buffer pDrawBuffer;
+	vkExt::SharedMemory* ppDrawMemory;
+	// some attributes used for the shared vertex and index buffer memory
+	VkDeviceSize maxVertexSize = INITIAL_VERTEX_COUNT * sizeof(Geometry::Vertex);
+	VkDeviceSize lastVertexOffset;
+	VkDeviceSize maxIndexSize = INITIAL_VERTEX_COUNT * sizeof(uint32_t);
+	VkDeviceSize indexBufferOffset;
+	VkDeviceSize lastIndexOffset;
 
-    vkExt::Buffer pInstanceBuffer;
-    vkExt::SharedMemory* ppInstanceMemory;
+	vkExt::Buffer pInstanceBuffer;
+	vkExt::SharedMemory* ppInstanceMemory;
 
-    vkExt::Buffer pIndirectCommandsBuffer;
-    vkExt::SharedMemory* ppIndirectCommandMemory;
+	VkDeviceSize indirectCommandsSize;
+	vkExt::Buffer pIndirectCommandsBuffer;
+	vkExt::SharedMemory* ppIndirectCommandMemory;
 
-    vkExt::Buffer pIndirectDrawCountBuffer;
-    vkExt::SharedMemory* ppIndirectDrawCountMemory;
+	vkExt::Buffer pIndirectDrawCountBuffer;
+	vkExt::SharedMemory* ppIndirectDrawCountMemory;
 
-    // Synchronization objects
-    std::vector<VkSemaphore> semImageAvailable;
-    std::vector<VkSemaphore> semOffScreenFinished;
-    std::vector<VkSemaphore> semRenderFinished;
-    std::vector<VkSemaphore> semUiFinished;
-    std::vector<VkFence> inFlightFences;
+	// Synchronization objects
+	std::vector<VkSemaphore> semImageAvailable;
+	std::vector<VkSemaphore> semOffScreenFinished;
+	std::vector<VkSemaphore> semRenderFinished;
+	std::vector<VkSemaphore> semUiFinished;
+	std::vector<VkFence> inFlightFences;
 
-    size_t frameCounter = 0;
+	size_t frameCounter = 0;
 
-    VkCommandBuffer offScreenCmdBuffer;
+	VkCommandBuffer offScreenCmdBuffer;
 
-    std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkCommandBuffer> offScreenBuffers;
-    std::vector<VkCommandBuffer> uiCommandBuffers;
+	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> offScreenBuffers;
+	std::vector<VkCommandBuffer> uiCommandBuffers;
 
-    std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
+	std::vector<VkImage> swapChainImages;
+	std::vector<VkImageView> swapChainImageViews;
 
-    std::vector<vkExt::Image> depthImages;
-    std::vector<VkImageView> depthImageViews;
-    std::vector<vkExt::SharedMemory*> depthImageMemory;
+	std::vector<vkExt::Image> depthImages;
+	std::vector<VkImageView> depthImageViews;
+	std::vector<vkExt::SharedMemory*> depthImageMemory;
 
-    VkDescriptorSetLayout pMaterialDescriptorSetLayout;
-    size_t materialTextureLimit = 5; // diffuse, spec, normal, roughness, metallic
+	VkDescriptorSetLayout pMaterialDescriptorSetLayout;
+	size_t materialTextureLimit = 5; // diffuse, spec, normal, roughness, metallic
 
-    VkPhysicalDeviceFeatures requiredFeatures = {};
+	VkPhysicalDeviceFeatures requiredFeatures = {};
+	VkPhysicalDeviceFeatures optionalFeatures = {};
 
-    struct {
-        uint32_t drawCount;
-    } drawStatistics;
+	struct {
+		uint32_t drawCount;
+	} drawStatistics;
 
-    const std::vector<const char*> validationLayers = {
-        "VK_LAYER_LUNARG_standard_validation"
-    };
+	const std::vector<const char*> validationLayers = {
+		"VK_LAYER_LUNARG_standard_validation"
+	};
 
-    const std::vector<const char*> requiredExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
+	const std::vector<const char*> requiredExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
 
 #ifdef FORCE_NO_VALIDATION
-    const bool enableValidationLayers = false;
+	const bool enableValidationLayers = false;
 #else
-    bool enableValidationLayers = false;
+	bool enableValidationLayers = false;
 #endif
-    VkClearColorValue cClearColor = { 0.2f, 0.2f, 0.2f, 1.0f };
-    VkClearDepthStencilValue cClearDepth = { 1.0f, 0 };
+	VkClearColorValue cClearColor = { 0.2f, 0.2f, 0.2f, 1.0f };
+	VkClearDepthStencilValue cClearDepth = { 1.0f, 0 };
 
-    std::vector<VkImage> deviceCreatedImages;
-    std::vector<VkImageView> deviceCreatedImageViews;
+	std::vector<VkImage> deviceCreatedImages;
+	std::vector<VkImageView> deviceCreatedImageViews;
 
-    bool updateGeometry = true;
+	bool updateGeometry = true;
 
-    void setupVulkan();
+	void setupVulkan();
 
-    /*
+	/*
 		Vulkan setup
 		*/
-    void createVulkanInstance();
-    void setupDebugCallback();
-    void createSurface();
-    void selectPhysicalDevice();
-    void createVulkanDevice();
-    void createSwapChain(VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE);
-    void createImageViews();
-    void createCommandPool();
-    void createDepthResources();
-    void createMaterialDescriptorSetLayout();
-    void createPipeline();
-    void createComputePipeline();
-    void createDrawBuffer();
-    void createCommandBuffers();
-    void recordDrawCmdBuffers();
-    void createSyncObjects();
-    void setupGui();
-    void setupLights();
-    void increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSize newIndexLimit);
-    void cleanupSwapChain();
-    void recreateSwapChain();
-    void destroyCommandBuffers();
-    void recreateDrawCmdBuffers();
-    void recreateAllCmdBuffers();
+	void createVulkanInstance();
+	void setupDebugCallback();
+	void createSurface();
+	void selectPhysicalDevice();
+	void createVulkanDevice();
+	void createSwapChain(VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE);
+	void createImageViews();
+	void createCommandPool();
+	void createDepthResources();
+	void createMaterialDescriptorSetLayout();
+	void createPipeline();
+	void createComputePipeline();
+	void createDrawBuffer();
+	void createCommandBuffers();
+	void recordDrawCmdBuffers();
+	void recordComputeCmdBuffers();
+	void createSyncObjects();
+	void setupGui();
+	void setupLights();
+	void increaseDrawBufferSize(VkDeviceSize newVertLimit, VkDeviceSize newIndexLimit);
+	void cleanupSwapChain();
+	void recreateSwapChain();
+	void destroyCommandBuffers();
+	void recreateDrawCmdBuffers();
+	void recreateAllCmdBuffers();
 
-    void initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type = Lights::LTypeFlags::SPARKLE_LIGHT_TYPE_POINT);
+	void initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type = Lights::LTypeFlags::SPARKLE_LIGHT_TYPE_POINT);
 
-    Vulkan::RequiredQueueFamilyIndices getQueueFamilies(VkPhysicalDevice device) const;
-    Vulkan::SwapChainSupportInfo getSwapChainSupportInfo(VkPhysicalDevice device) const;
-    size_t checkDeviceRequirements(VkPhysicalDevice device) const;
-    bool checkValidationLayerSupport() const;
+	Vulkan::RequiredQueueFamilyIndices getQueueFamilies(VkPhysicalDevice device) const;
+	Vulkan::SwapChainSupportInfo getSwapChainSupportInfo(VkPhysicalDevice device) const;
+	size_t checkDeviceRequirements(VkPhysicalDevice device) const;
+	bool checkValidationLayerSupport() const;
 
-    uint32_t findMemoryType(uint32_t filter, VkMemoryPropertyFlags properties) const;
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+	uint32_t findMemoryType(uint32_t filter, VkMemoryPropertyFlags properties) const;
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
-    static bool formatHasStencilComponent(VkFormat& format)
-    {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-    }
+	static bool formatHasStencilComponent(VkFormat& format)
+	{
+		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+	}
 
-    static VkSurfaceFormatKHR getBestSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-    static VkPresentModeKHR getBestPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
+	static VkSurfaceFormatKHR getBestSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	static VkPresentModeKHR getBestPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
 
-    VkExtent2D getSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
+	VkExtent2D getSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
 
-    std::vector<const char*> getRequiredExtensions() const;
+	std::vector<const char*> getRequiredExtensions() const;
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData);
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData);
 };
-}
+} // namespace Sparkle

@@ -6,15 +6,14 @@
 // Copyright (c) Patrick Gantner. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-struct InstanceData {
+struct MeshData {
 	float4x4 model;
 	uint firstIndex;
 	uint indexCount;
 };
 
-[[vk::binding(0)]] cbuffer Instances {
-	InstanceData instances[];
-};
+[[vk::binding(0)]] 
+StructuredBuffer<MeshData> Meshes;
 
 struct DrawCommandIndexIndirect {
 	uint indexCount;
@@ -33,9 +32,7 @@ struct DrawCommandIndexIndirect {
 	float4 frustumCube[6];
 }
 
-[[vk::binding(3)]] cbuffer uboOut {
-	uint drawCount;
-};
+[[vk::binding(3)]] RWStructuredBuffer<uint> drawCount;
 
 bool checkFrustum(float4 pos, float rad) {
 	for (uint i = 0; i < 6; ++i) {
@@ -55,18 +52,20 @@ void main(uint3 DTid : SV_DispatchThreadID) {
 
 	if (idx == 0) {
 		uint orig;
-		InterlockedExchange(drawCount, 0, orig);
+		InterlockedExchange(drawCount[idx], 0, orig);
 	}
 
-	float4x4 iModel = instances[idx].model;
+	float4x4 iModel = Meshes[idx].model;
 	float4 pos = float4(iModel._41, iModel._42, iModel._43, 1.0f);
 
 	if (checkFrustum(pos, 1.0f)) {
 		indirectDraws[idx].instanceCount = 1;
-		indirectDraws[idx].firstIndex = instances[idx].firstIndex;
-		indirectDraws[idx].indexCount = instances[idx].indexCount;
+		indirectDraws[idx].firstIndex = Meshes[idx].firstIndex;
+		indirectDraws[idx].indexCount = Meshes[idx].indexCount;
+		indirectDraws[idx].vertexOffset = 0;
+		indirectDraws[idx].firstInstance = 0;
 
-		InterlockedAdd(drawCount, 1);
+		InterlockedAdd(drawCount[idx], 1);
 	}
 	else {
 		indirectDraws[idx].instanceCount = 0;

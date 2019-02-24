@@ -30,10 +30,11 @@ namespace Geometry {
 		glm::vec3 bitangent;
 		glm::vec2 texCoord;
 
-		static std::array<VkVertexInputBindingDescription, 2> getBindingDescriptions()
+		static std::array<VkVertexInputBindingDescription, 1> getBindingDescriptions()
 		{
-			const std::array<VkVertexInputBindingDescription, 2> bindings = { { { 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX },
-				{ 1, sizeof(Draw::InstanceData), VK_VERTEX_INPUT_RATE_INSTANCE } } };
+			const std::array<VkVertexInputBindingDescription, 1> bindings = { {
+				{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX },
+			} };
 			return bindings;
 		}
 
@@ -165,6 +166,7 @@ namespace Geometry {
 
 		// TODO: buffer this and only update on geometry changes
 		const std::vector<std::shared_ptr<Node>> getRenderableScene();
+		size_t objectCount();
 		void loadFromFile(const std::string& fileName);
 		void processAssimp();
 		bool isLoaded() const { return loaded; }

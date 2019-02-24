@@ -34,11 +34,4 @@ namespace Vulkan {
 		std::vector<VkPresentModeKHR> presentModes {};
 	};
 } // namespace Vulkan
-
-namespace Draw {
-	struct InstanceData {
-		glm::vec3 pos;
-		float scale;
-	};
-} // namespace Draw
 } // namespace Sparkle
