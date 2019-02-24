@@ -41,6 +41,7 @@ void RenderBackend::setupVulkan()
 	createComputePipeline();
 	setupGui();
 	createCommandBuffers();
+	recordComputeCmdBuffers();
 	createSyncObjects();
 }
 
@@ -104,13 +105,6 @@ void RenderBackend::draw(double deltaT)
 	{
 		VkSubmitInfo renderInfo {};
 		renderInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-		VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		renderInfo.waitSemaphoreCount = 1;
-		renderInfo.pWaitSemaphores = waitSemaphores;
-		renderInfo.pWaitDstStageMask = waitStages;
-
 		renderInfo.commandBufferCount = 1;
 		renderInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
@@ -118,8 +112,38 @@ void RenderBackend::draw(double deltaT)
 		renderInfo.signalSemaphoreCount = 1;
 		renderInfo.pSignalSemaphores = signalSemaphores;
 
-		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
-		    "Error occured during rendering pass");
+		if (computeEnabled) {
+			vkWaitForFences(pVulkanDevice, 1, &compute.fence, VK_TRUE, uint64_t(5e+9));
+			vkResetFences(pVulkanDevice, 1, &compute.fence);
+
+			VkSubmitInfo computeInfo = {};
+			computeInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			computeInfo.commandBufferCount = 1;
+			computeInfo.pCommandBuffers = &compute.cmdBuffers[imageIndex];
+			computeInfo.signalSemaphoreCount = 1;
+			computeInfo.pSignalSemaphores = &compute.sem;
+
+			VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
+			    "Error occured during compute pass");
+
+			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.sem };
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+			renderInfo.waitSemaphoreCount = 2;
+			renderInfo.pWaitSemaphores = waitSemaphores;
+			renderInfo.pWaitDstStageMask = waitStages;
+
+			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fence),
+			    "Error occured during rendering pass");
+		} else {
+			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+			renderInfo.waitSemaphoreCount = 1;
+			renderInfo.pWaitSemaphores = waitSemaphores;
+			renderInfo.pWaitDstStageMask = waitStages;
+
+			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
+			    "Error occured during rendering pass");
+		}
 	}
 
 	{
@@ -175,7 +199,7 @@ void RenderBackend::draw(double deltaT)
 	frameCounter = (frameCounter + 1) % MAX_FRAMES_IN_FLIGHT;
 	// TODO: wait for the render to finish here until i figure out the issue with laggy mouse cursor when using tripple
 	// buffering
-	vkDeviceWaitIdle(pVulkanDevice);
+	//vkDeviceWaitIdle(pVulkanDevice);
 }
 
 void RenderBackend::updateUiData(GUI::FrameData uiData) { pUi->updateFrame(uiData); }
@@ -185,7 +209,7 @@ void RenderBackend::updateUniforms()
 	int width, height;
 	glfwGetWindowSize(pWindow, &width, &height);
 
-	Shaders::UniformBufferObject ubo = {};
+	Shaders::ShaderProgram::UniformBufferObject ubo = {};
 
 	ubo.view = pCamera->getView();
 	ubo.projection = pCamera->getProjection();
@@ -262,11 +286,26 @@ void RenderBackend::cleanup()
 
 	pScene->cleanup();
 
+	compute.cleanup();
 	cleanupSwapChain();
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()),
 	    uiCommandBuffers.data());
 
 	pDrawBuffer.destroy(true); // cleanup vertex buffer and memory
+	if (pIndirectCommandsBuffer.buffer)
+		pIndirectCommandsBuffer.destroy(true);
+	if (pIndirectDrawCountBuffer.buffer)
+		pIndirectDrawCountBuffer.destroy(true);
+	if (pInstanceBuffer.buffer)
+		pInstanceBuffer.destroy(true);
+	if (ppDrawMemory)
+		delete (ppDrawMemory);
+	if (ppIndirectCommandMemory)
+		delete (ppIndirectCommandMemory);
+	if (ppIndirectDrawCountMemory)
+		delete (ppIndirectDrawCountMemory);
+	if (ppInstanceMemory)
+		delete (ppInstanceMemory);
 
 	for (auto& imageView : deviceCreatedImageViews) {
 		vkDestroyImageView(pVulkanDevice, imageView, nullptr);
@@ -347,6 +386,7 @@ void RenderBackend::selectPhysicalDevice()
 
 	if (ratedDevices.rbegin()->first > 0) {
 		pPhysicalDevice = ratedDevices.rbegin()->second;
+		vkGetPhysicalDeviceFeatures(pPhysicalDevice, &deviceFeatures);
 	} else {
 		throw std::runtime_error("No GPU meeting the requirements found");
 	}
@@ -367,6 +407,10 @@ void RenderBackend::createVulkanDevice()
 		queueCreateInfo.queueCount = 1;
 		queueCreateInfo.pQueuePriorities = &queuePriority;
 		queueCreateInfos.push_back(queueCreateInfo);
+	}
+
+	if (deviceFeatures.multiDrawIndirect == VK_TRUE) {
+		requiredFeatures.multiDrawIndirect = VK_TRUE;
 	}
 
 	VkDeviceCreateInfo deviceCreateInfo = {};
@@ -514,20 +558,108 @@ void RenderBackend::createPipeline()
 
 void RenderBackend::createComputePipeline()
 {
-	compute.initialize(deviceQueueFamilies.computeFamily);
+	compute.initialize(deviceQueueFamilies.computeFamily, pGraphicsPipeline->getFramebufferPtrs().size());
+}
 
-	std::array<VkWriteDescriptorSet, 4> writes = {
-		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0,
-		    &pInstanceBuffer.descriptor),
-		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
-		    &pIndirectCommandsBuffer.descriptor),
-		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2,
-		    &compute.uboBuff.descriptor),
-		Sparkle::VK::Init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3,
-		    &pIndirectDrawCountBuffer.descriptor)
-	};
+void RenderBackend::recordComputeCmdBuffers()
+{
+	if (pScene->objectCount() > 0) {
+		vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
+		vkExt::Buffer staging;
 
-	vkUpdateDescriptorSets(pVulkanDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+		std::vector<ComputePipeline::MeshData> meshData;
+
+		for (const auto& node : pScene->getRenderableScene()) {
+			if (!node->drawable()) {
+				continue;
+			}
+			const auto mesh = std::dynamic_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
+			ComputePipeline::MeshData data = {};
+			data.model = mesh->accumModel();
+			data.indexCount = mesh->size();
+			data.firstIndex = mesh->bufferOffset.indexOffs;
+			meshData.push_back(data);
+		}
+
+		VkDeviceSize stSize = meshData.size() * sizeof(ComputePipeline::MeshData);
+		createBuffer(stSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);
+
+		if (pInstanceBuffer.buffer) {
+			pInstanceBuffer.destroy(true);
+			delete (ppInstanceMemory);
+		}
+		ppInstanceMemory = new vkExt::SharedMemory();
+		createBuffer(stSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, pInstanceBuffer, ppInstanceMemory);
+
+		staging.map();
+		staging.copyTo(meshData.data(), stSize);
+		staging.unmap();
+		pInstanceBuffer.copyToBuffer(pCommandPool, pGraphicsQueue, staging, stSize);
+		pInstanceBuffer.flush();
+		staging.destroy(true);
+		delete (stagingMem);
+
+		if (pIndirectCommandsBuffer.buffer) {
+			pIndirectCommandsBuffer.destroy(true);
+			delete (ppIndirectCommandMemory);
+		}
+		ppIndirectCommandMemory = new vkExt::SharedMemory();
+		VkDeviceSize idcSize = meshData.size() * sizeof(VkDrawIndexedIndirectCommand);
+		createBuffer(idcSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, pIndirectCommandsBuffer, ppIndirectCommandMemory);
+		indirectCommandsSize = meshData.size();
+
+		if (pIndirectDrawCountBuffer.buffer) {
+			pIndirectDrawCountBuffer.destroy(true);
+			delete (ppIndirectDrawCountMemory);
+		}
+		ppIndirectDrawCountMemory = new vkExt::SharedMemory();
+		idcSize = meshData.size() * sizeof(uint32_t);
+		createBuffer(idcSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pIndirectDrawCountBuffer, ppIndirectDrawCountMemory);
+
+		std::array<VkWriteDescriptorSet, 4> writes = {
+			vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0,
+			    &pInstanceBuffer.descriptor),
+			vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
+			    &pIndirectCommandsBuffer.descriptor),
+			vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2,
+			    &compute.uboBuff.descriptor),
+			vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3,
+			    &pIndirectDrawCountBuffer.descriptor)
+		};
+
+		vkUpdateDescriptorSets(pVulkanDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+	}
+	for (auto& cmdBuff : compute.cmdBuffers) {
+		auto cmdBuffInfo = vk::init::commandBufferBeginInfo();
+		VK_THROW_ON_ERROR(vkBeginCommandBuffer(cmdBuff, &cmdBuffInfo), "Unable to create Compute CMD Buffer");
+
+		if (pScene->objectCount() > 0) {
+			VkBufferMemoryBarrier bufferBarrier = vk::init::bufferMemoryBarrier();
+			bufferBarrier.buffer = pIndirectCommandsBuffer.buffer;
+			bufferBarrier.size = pIndirectCommandsBuffer.descriptor.range;
+			bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+			bufferBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			bufferBarrier.srcQueueFamilyIndex = deviceQueueFamilies.graphicsFamily;
+			bufferBarrier.dstQueueFamilyIndex = deviceQueueFamilies.computeFamily;
+
+			vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+
+			vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
+			vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descSet, 0, 0);
+
+			vkCmdDispatch(cmdBuff, pScene->objectCount() >= 16 ? pScene->objectCount() / 16 : pScene->objectCount(), 1, 1);
+
+			bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			bufferBarrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+			bufferBarrier.buffer = pIndirectCommandsBuffer.buffer;
+			bufferBarrier.size = pIndirectCommandsBuffer.descriptor.range;
+			bufferBarrier.srcQueueFamilyIndex = deviceQueueFamilies.computeFamily;
+			bufferBarrier.dstQueueFamilyIndex = deviceQueueFamilies.graphicsFamily;
+
+			vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, 0);
+		}
+		vkEndCommandBuffer(cmdBuff);
+	}
 }
 
 void RenderBackend::createCommandPool()
@@ -581,6 +713,13 @@ void RenderBackend::recreateDrawCmdBuffers()
 {
 	vkWaitForFences(pVulkanDevice, MAX_FRAMES_IN_FLIGHT, inFlightFences.data(), VK_TRUE, uint64_t(5e+9));
 	vkDeviceWaitIdle(pVulkanDevice);
+	if (computeEnabled) {
+		for (auto& cmdBuff : compute.cmdBuffers) {
+			vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+		}
+		recordComputeCmdBuffers();
+	}
+
 	for (auto& cmdBuff : commandBuffers) {
 		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 	}
@@ -683,8 +822,18 @@ void RenderBackend::recordDrawCmdBuffers()
 					    pGraphicsPipeline->getPipelineLayoutPtr(), 0,
 					    static_cast<uint32_t>(sets.size()), sets.data(),
 					    static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
-					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1,
-					    static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
+					if (computeEnabled) {
+						if (deviceFeatures.multiDrawIndirect) {
+							vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, 0, indirectCommandsSize, sizeof(VkDrawIndexedIndirectCommand));
+						} else {
+							for (auto i = 0u; i < indirectCommandsSize; ++i) {
+								vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+							}
+						}
+					} else {
+						vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1,
+						    static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
+					}
 				}
 				++j;
 			}
