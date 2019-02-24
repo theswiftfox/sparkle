@@ -113,26 +113,26 @@ void RenderBackend::draw(double deltaT)
 		renderInfo.pSignalSemaphores = signalSemaphores;
 
 		if (computeEnabled) {
-			vkWaitForFences(pVulkanDevice, 1, &compute.fence, VK_TRUE, uint64_t(5e+9));
-			vkResetFences(pVulkanDevice, 1, &compute.fence);
+			vkWaitForFences(pVulkanDevice, 1, &compute.fences[imageIndex], VK_TRUE, uint64_t(5e+9));
+			vkResetFences(pVulkanDevice, 1, &compute.fences[imageIndex]);
 
 			VkSubmitInfo computeInfo = {};
 			computeInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			computeInfo.commandBufferCount = 1;
 			computeInfo.pCommandBuffers = &compute.cmdBuffers[imageIndex];
 			computeInfo.signalSemaphoreCount = 1;
-			computeInfo.pSignalSemaphores = &compute.sem;
+			computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
 
 			VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
 			    "Error occured during compute pass");
 
-			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.sem };
+			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
 			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 			renderInfo.waitSemaphoreCount = 2;
 			renderInfo.pWaitSemaphores = waitSemaphores;
 			renderInfo.pWaitDstStageMask = waitStages;
 
-			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fence),
+			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fences[imageIndex]),
 			    "Error occured during rendering pass");
 		} else {
 			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
@@ -227,6 +227,17 @@ void RenderBackend::updateUniforms()
 		shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 		updateGeometry = false;
 	}
+
+	// frustum
+	auto vp = ubo.projection * ubo.view;
+	compute.ubo.frustumPlanes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]); // left
+	compute.ubo.frustumPlanes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]); // right
+	compute.ubo.frustumPlanes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]); // bottom
+	compute.ubo.frustumPlanes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]); // top
+	compute.ubo.frustumPlanes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]); // near
+	compute.ubo.frustumPlanes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]); // far
+
+	compute.updateUBO(compute.ubo);
 }
 
 void RenderBackend::cleanupSwapChain()
@@ -647,7 +658,10 @@ void RenderBackend::recordComputeCmdBuffers()
 			vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
 			vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descSet, 0, 0);
 
-			vkCmdDispatch(cmdBuff, pScene->objectCount() >= 16 ? pScene->objectCount() / 16 : pScene->objectCount(), 1, 1);
+			auto workGroupSize = 16u;
+			auto workGroupCount = pScene->objectCount() >= workGroupSize ? pScene->objectCount() / workGroupSize : 1u;
+
+			vkCmdDispatch(cmdBuff, workGroupCount, 1, 1);
 
 			bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 			bufferBarrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;

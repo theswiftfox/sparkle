@@ -23,16 +23,29 @@ struct DrawCommandIndexIndirect {
 	uint firstInstance;
 };
 
-[[vk::binding(1)]] RWStructuredBuffer<DrawCommandIndexIndirect> indirectDraws;
+[[vk::binding(1)]] 
+RWStructuredBuffer<DrawCommandIndexIndirect> indirectDraws;
 
-[[vk::binding(2)]] cbuffer ubo {
+[[vk::binding(2)]] 
+cbuffer ubo {
 	float4x4 viewMat;
 	float4x4 projectionMat;
 	float4 cameraPos;
 	float4 frustumCube[6];
 }
 
-[[vk::binding(3)]] RWStructuredBuffer<uint> drawCount;
+[[vk::binding(3)]] 
+RWStructuredBuffer<uint> drawCount;
+
+// [[vk::constant_id(0)]] const uint workGroupSize = 16;
+// [[vk::constant_id(1)]] const uint numWorkGroups = 1;
+struct PushConstant {
+	uint numWorkGroups;
+	uint workGroupSize;
+};
+
+[[vk::push_constant]]
+PushConstant groupTraits;
 
 bool checkFrustum(float4 pos, float rad) {
 	for (uint i = 0; i < 6; ++i) {
@@ -43,12 +56,8 @@ bool checkFrustum(float4 pos, float rad) {
 	return true;
 }
 
-[[vk::constant_id(0)]] const uint workGroupSize = 1;
-[[vk::constant_id(1)]] const uint numWorkGroups = 1;
-
-
 void main(uint3 DTid : SV_DispatchThreadID) {
-	uint idx = DTid.x + DTid.y * numWorkGroups * workGroupSize;
+	uint idx = DTid.x + DTid.y * groupTraits.numWorkGroups * groupTraits.workGroupSize;
 
 	if (idx == 0) {
 		uint orig;

@@ -35,6 +35,13 @@ void ComputePipeline::initialize(uint32_t queueIndex, uint32_t cmdBuffCount)
 	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(device, &setLayoutInfo, nullptr, &descSetLayout), "DescriptorSetLayout creation for Compute failed!");
 
 	auto pipeLayoutInfo = vk::init::pipelineLayoutInfo(&descSetLayout);
+	// VkPushConstantRange pushConstRange = {};
+	// pushConstRange.offset = 0;
+	// pushConstRange.size = sizeof(PushConstants);
+	// pushConstRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// pipeLayoutInfo.pushConstantRangeCount = 1;
+	// pipeLayoutInfo.pPushConstantRanges = &pushConstRange;
 	VK_THROW_ON_ERROR(vkCreatePipelineLayout(device, &pipeLayoutInfo, nullptr, &pipelineLayout), "PipelineLayout creation for Compute failed!");
 
 	auto allocInfo = vk::init::descriptorSetAllocateInfo(descPool, &descSetLayout, 1);
@@ -44,7 +51,8 @@ void ComputePipeline::initialize(uint32_t queueIndex, uint32_t cmdBuffCount)
 	App::getHandle().getRenderBackend()->createBuffer(sizeof(UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uboBuff, uboMem);
 
 	auto pipeCreateInfo = vk::init::computePipelineCreateInfo(pipelineLayout);
-	shader = Shaders::createShaderModule(Tools::FileReader::readFile("shaders/cull.comp.hlsl.spv"));
+	// shader = Shaders::createShaderModule(Tools::FileReader::readFile("shaders/cull.comp.hlsl.spv"));
+	shader = Shaders::createShaderModule(Tools::FileReader::readFile("shaders/cull.comp.spv"));
 	pipeCreateInfo.stage = vk::init::shaderStageInfo(shader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_THROW_ON_ERROR(vkCreateComputePipelines(device, nullptr, 1, &pipeCreateInfo, nullptr, &pipeline), "Compute Pipeline creation failed!");
 
@@ -62,18 +70,28 @@ void ComputePipeline::initialize(uint32_t queueIndex, uint32_t cmdBuffCount)
 	}
 
 	auto fenceInfo = vk::init::fenceInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-	VK_THROW_ON_ERROR(vkCreateFence(device, &fenceInfo, nullptr, &fence), "Fence creation for Compute failed!");
+	fences.resize(cmdBuffCount);
+	for (auto& fence : fences) {
+		VK_THROW_ON_ERROR(vkCreateFence(device, &fenceInfo, nullptr, &fence), "Fence creation for Compute failed!");
+	}
 
 	auto semInfo = vk::init::semaphoreInfo();
-	VK_THROW_ON_ERROR(vkCreateSemaphore(device, &semInfo, nullptr, &sem), "Semaphore creation for Compute failed!");
+	semaphores.resize(cmdBuffCount);
+	for (auto& sem : semaphores) {
+		VK_THROW_ON_ERROR(vkCreateSemaphore(device, &semInfo, nullptr, &sem), "Semaphore creation for Compute failed!");
+	}
 }
 
 void ComputePipeline::cleanup()
 {
 	auto device = App::getHandle().getRenderBackend()->getDevice();
 
-	vkDestroySemaphore(device, sem, nullptr);
-	vkDestroyFence(device, fence, nullptr);
+	for (auto& sem : semaphores) {
+		vkDestroySemaphore(device, sem, nullptr);
+	}
+	for (auto& fence : fences) {
+		vkDestroyFence(device, fence, nullptr);
+	}
 	vkDestroyCommandPool(device, cmdPool, nullptr);
 	vkDestroyPipeline(device, pipeline, nullptr);
 	vkDestroyShaderModule(device, shader, nullptr);
@@ -84,4 +102,11 @@ void ComputePipeline::cleanup()
 
 	uboBuff.destroy(true);
 	delete (uboMem);
+}
+
+void ComputePipeline::updateUBO(const ComputePipeline::UBO& ubo)
+{
+	if (!uboBuff.mapped())
+		uboBuff.map();
+	uboBuff.copyTo(&ubo, sizeof(UBO));
 }
