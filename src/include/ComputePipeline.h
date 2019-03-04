@@ -7,11 +7,6 @@
 
 namespace Sparkle {
 struct ComputePipeline {
-	struct PushConstants {
-		uint workGroupSize;
-		uint workGroupCount;
-	};
-
 	struct UBO {
 		glm::vec4 frustumPlanes[6];
 	} ubo;

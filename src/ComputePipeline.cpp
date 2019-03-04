@@ -35,13 +35,7 @@ void ComputePipeline::initialize(uint32_t queueIndex, uint32_t cmdBuffCount)
 	VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(device, &setLayoutInfo, nullptr, &descSetLayout), "DescriptorSetLayout creation for Compute failed!");
 
 	auto pipeLayoutInfo = vk::init::pipelineLayoutInfo(&descSetLayout);
-	// VkPushConstantRange pushConstRange = {};
-	// pushConstRange.offset = 0;
-	// pushConstRange.size = sizeof(PushConstants);
-	// pushConstRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	// pipeLayoutInfo.pushConstantRangeCount = 1;
-	// pipeLayoutInfo.pPushConstantRanges = &pushConstRange;
 	VK_THROW_ON_ERROR(vkCreatePipelineLayout(device, &pipeLayoutInfo, nullptr, &pipelineLayout), "PipelineLayout creation for Compute failed!");
 
 	auto allocInfo = vk::init::descriptorSetAllocateInfo(descPool, &descSetLayout, 1);

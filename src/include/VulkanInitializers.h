@@ -125,14 +125,14 @@ namespace vk {
 			return barrier;
 		}
 
-		inline VkPipelineShaderStageCreateInfo shaderStageInfo(VkShaderModule module, VkShaderStageFlagBits stageFlags, const std::string name = "main")
+		inline VkPipelineShaderStageCreateInfo shaderStageInfo(VkShaderModule module, VkShaderStageFlagBits stageFlags)
 		{
 			VkPipelineShaderStageCreateInfo info = {};
 			info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 			info.pNext = nullptr;
 			info.module = module;
 			info.stage = stageFlags;
-			info.pName = name.c_str();
+			info.pName = "main";
 			return info;
 		}
 
