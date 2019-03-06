@@ -123,8 +123,12 @@ void RenderBackend::draw(double deltaT)
 			computeInfo.signalSemaphoreCount = 1;
 			computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
 
-			VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
-			    "Error occured during compute pass");
+			//VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
+			//    "Error occured during compute pass");
+			auto cerr = vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr);
+			if (cerr != VK_SUCCESS) {
+				throw std::runtime_error("Error occured during compute pass");
+			}
 
 			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
 			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
@@ -606,7 +610,7 @@ void RenderBackend::recordComputeCmdBuffers()
 		staging.copyTo(meshData.data(), stSize);
 		staging.unmap();
 		pInstanceBuffer.copyToBuffer(pCommandPool, pGraphicsQueue, staging, stSize);
-		pInstanceBuffer.flush();
+	//	pInstanceBuffer.flush();
 		staging.destroy(true);
 		delete (stagingMem);
 
@@ -837,13 +841,7 @@ void RenderBackend::recordDrawCmdBuffers()
 					    static_cast<uint32_t>(sets.size()), sets.data(),
 					    static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 					if (computeEnabled) {
-						if (deviceFeatures.multiDrawIndirect) {
-							vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, 0, indirectCommandsSize, sizeof(VkDrawIndexedIndirectCommand));
-						} else {
-							for (auto i = 0u; i < indirectCommandsSize; ++i) {
-								vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-							}
-						}
+						vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, j * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 					} else {
 						vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1,
 						    static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
