@@ -44,6 +44,7 @@ int main(const int argc, char** argv)
     JsSetCurrentContext(JS_INVALID_REFERENCE);
     JsDisposeRuntime(runtime);
 
+	std::cin.ignore();
     auto& app = Sparkle::App::getHandle();
 
     try {

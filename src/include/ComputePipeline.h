@@ -15,6 +15,7 @@ struct ComputePipeline {
 		glm::mat4 model;
 		uint32_t firstIndex;
 		uint32_t indexCount;
+		glm::vec2 pad;
 	};
 
 	VkQueue queue;
