@@ -62,7 +62,7 @@ private:
 
     VkViewport viewport {};
 
-    VkSampler offScreenSampler;
+    VkSampler offScreenSampler = nullptr;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
     std::vector<FrameBuffer> offscreenBuffers;

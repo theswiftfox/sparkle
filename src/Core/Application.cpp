@@ -26,12 +26,13 @@ void App::initialize(std::string config)
     windowHeight = resolution.second;
 
     pCamera = std::make_unique<Camera>(pSettings);
-    pScene = std::make_shared<Geometry::Scene>();
-
     createWindow();
 
-    pRenderer = std::make_unique<Sparkle::RenderBackend>(pWindow, APP_NAME, pCamera, pScene);
+    pRenderer = std::make_unique<Sparkle::RenderBackend>(pWindow, APP_NAME, pCamera);
     pRenderer->initialize(pSettings, pSettings->withValidationLayer());
+
+	pSceneLoader = std::make_unique<Import::SceneLoader>();
+	pSceneLoader->loadFromFile(pSettings->getLevelPath());
 
     pInputController = std::make_shared<InputController>(pWindow, pCamera);
 }
@@ -67,7 +68,6 @@ void App::mainLoop()
     auto lastFrameTime = 0.0;
     size_t frames = 0;
     double mx, my;
-    bool initLevel = true;
 
     double updateFreq = -1.0;
     while (!glfwWindowShouldClose(pWindow)) {
@@ -83,10 +83,9 @@ void App::mainLoop()
 
         glfwPollEvents();
 
-        if (pScene->isLoaded() && initLevel) {
-            initLevel = false;
-            pScene->processAssimp();
-            pRenderer->updateDrawCommand();
+        if (pSceneLoader->isLoaded() && !pScene) {
+            pScene = pSceneLoader->processScene();
+            pRenderer->updateScenePtr(pScene);
         }
 
         // Update imGui

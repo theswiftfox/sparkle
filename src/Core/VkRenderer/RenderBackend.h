@@ -21,6 +21,7 @@
 #include "GraphicsPipeline.h"
 #include "SparkleTypes.h"
 #include "UI.h"
+#include "SceneLoader.h"
 
 #define MAX_FRAMES_IN_FLIGHT 2
 #define DEVICE_NOT_SUITABLE 0
@@ -33,12 +34,13 @@ constexpr auto INITIAL_VERTEX_COUNT = 1000;
 
 class RenderBackend {
 public:
-	RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera, std::shared_ptr<Geometry::Scene> scene);
+	RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera);
 
 	void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
 	void draw(double deltaT);
 	void updateUniforms();
 	void updateUiData(GUI::FrameData uiData);
+	void updateScenePtr(std::shared_ptr<Geometry::Scene> scene);
 
 	void cleanup();
 	void reloadShaders();
@@ -46,7 +48,6 @@ public:
 	Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
 	std::shared_ptr<GUI> getUiHandle() const { return pUi; }
-	void updateDrawCommand();
 
 	VkDevice getDevice() const { return pVulkanDevice; }
 	VkPhysicalDevice getPhysicalDevice() const { return pPhysicalDevice; }
@@ -84,8 +85,6 @@ private:
 	std::shared_ptr<GUI> pUi = nullptr;
 
 	Shaders::ShaderProgram::FragmentShaderUniforms fragmentUBO;
-
-	std::future<void> levelLoadFuture;
 
 	GLFWwindow* pWindow;
 	int viewportWidth, viewportHeight;
@@ -217,6 +216,7 @@ private:
 	void destroyCommandBuffers();
 	void recreateDrawCmdBuffers();
 	void recreateAllCmdBuffers();
+	void updateDrawCommand();
 
 	void initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type = Lights::LTypeFlags::SPARKLE_LIGHT_TYPE_POINT);
 
