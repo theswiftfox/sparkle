@@ -45,13 +45,11 @@ void RenderBackend::setupVulkan()
 	createSyncObjects();
 }
 
-RenderBackend::RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera,
-    std::shared_ptr<Geometry::Scene> scene)
+RenderBackend::RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera)
 {
 	pWindow = windowPtr;
 	appName = name;
 	pCamera = camera;
-	pScene = scene;
 }
 
 void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withValidation)
@@ -67,7 +65,6 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 	setupVulkan();
 	setupLights();
 
-	pScene->loadFromFile(settings->getLevelPath());
 	updateGeometry = true;
 }
 
@@ -227,7 +224,7 @@ void RenderBackend::updateUniforms()
 	vkDeviceWaitIdle(pVulkanDevice);
 	shaderProg->updateUniformBufferObject(ubo);
 	shaderProg->updateFragmentShaderUniforms(fragmentUBO);
-	if (updateGeometry) {
+	if (updateGeometry && pScene) {
 		shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 		updateGeometry = false;
 	}
@@ -568,7 +565,8 @@ void RenderBackend::createPipeline()
 	};
 	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
 	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+	auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
+	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(meshes);
 }
 
 void RenderBackend::createComputePipeline()
@@ -578,7 +576,7 @@ void RenderBackend::createComputePipeline()
 
 void RenderBackend::recordComputeCmdBuffers()
 {
-	if (pScene->objectCount() > 0) {
+	if (pScene && pScene->objectCount() > 0) {
 		vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
 		vkExt::Buffer staging;
 
@@ -648,7 +646,7 @@ void RenderBackend::recordComputeCmdBuffers()
 		auto cmdBuffInfo = vk::init::commandBufferBeginInfo();
 		VK_THROW_ON_ERROR(vkBeginCommandBuffer(cmdBuff, &cmdBuffInfo), "Unable to create Compute CMD Buffer");
 
-		if (pScene->objectCount() > 0) {
+		if (pScene && pScene->objectCount() > 0) {
 			VkBufferMemoryBarrier bufferBarrier = vk::init::bufferMemoryBarrier();
 			bufferBarrier.buffer = pIndirectCommandsBuffer.buffer;
 			bufferBarrier.size = pIndirectCommandsBuffer.descriptor.range;
@@ -723,8 +721,17 @@ void RenderBackend::destroyCommandBuffers()
 	    commandBuffers.data());
 }
 
+void RenderBackend::updateScenePtr(std::shared_ptr<Geometry::Scene> scene) {
+	if (pScene) {
+		pScene->cleanup();
+	}
+	pScene = scene;
+	updateDrawCommand();
+}
+
 void RenderBackend::updateDrawCommand()
 {
+	assert(pScene);
 	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 	recreateDrawCmdBuffers();
 }
@@ -816,7 +823,7 @@ void RenderBackend::recordDrawCmdBuffers()
 			vkCmdBindIndexBuffer(commandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
 
 			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
-			const auto meshes = pScene->getRenderableScene();
+			const auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
 
 			uint32_t j = 0;
 			for (auto& node : meshes) {

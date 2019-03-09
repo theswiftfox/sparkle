@@ -7,6 +7,11 @@ class Logger {
 public:
     static void toStdout(std::string msg, std::string func = "");
 };
+
+class IO {
+public:
+	static bool isImageExtension(std::string ext);
+};
 }
 
 #define LOGADDRSTDOUT(msg, ptr)                       \
@@ -17,7 +22,7 @@ public:
         Sparkle::Logger::toStdout(strm.str(), fname); \
     }
 
-#define LOTSTDOUT(msg)                         \
+#define LOGSTDOUT(msg)                         \
     {                                          \
         auto fname = std::string(__func__);    \
         Sparkle::Logger::toStdout(msg, fname); \

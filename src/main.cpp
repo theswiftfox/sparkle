@@ -14,7 +14,7 @@ int main(const int argc, char** argv)
     unsigned currentSourceContext = 0;
 
     // Your script; try replace hello-world with something else
-    std::string script = "(()=>{return \'Hello world!\';})()";
+    std::string script = "(()=>{return \'Waiting for GPU Debug injection. Press \"Enter\" to continue!\';})()";
 
     // Create a runtime.
     JsCreateRuntime(JsRuntimeAttributeNone, nullptr, &runtime);

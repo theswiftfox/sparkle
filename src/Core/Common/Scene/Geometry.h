@@ -4,16 +4,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <array>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
 #include <glm/glm.hpp>
 
-#include <atomic>
-#include <future>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "Material.h"
 #include "SparkleTypes.h"
@@ -160,42 +156,29 @@ namespace Geometry {
 	public:
 		Scene()
 		{
-			//glm::mat4 model(1.0f);
-			//model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			//model = glm::scale(model, glm::vec3(0.1f));
 			root = std::make_shared<Node>(/*model*/);
+		}
+
+		std::shared_ptr<Node> getRootNodePtr()
+		{
+			return root;
 		}
 
 		const std::vector<std::shared_ptr<Node>> getRenderableScene();
 		size_t objectCount();
-		void loadFromFile(const std::string& fileName);
-		void processAssimp();
-		bool isLoaded() const { return loaded; }
 
 		void cleanup();
+		void setDirty() { cacheDirty = true; }
 
-	private:
-		std::atomic_bool loaded = false;
-
-		std::future<void> levelLoadFuture;
-
-		std::shared_ptr<Node> root;
 		std::vector<std::shared_ptr<Texture>> textureCache;
-		std::map<std::string, std::string> textureFiles;
 		std::vector<std::shared_ptr<Material>> materialCache;
 
-		std::mutex sceneMutex;
-		Assimp::Importer importer;
-		const aiScene* scenePtr;
-		std::mutex dirMutex;
-		std::string rootDirectory;
+	private:
+		std::shared_ptr<Node> root;
 
 		std::vector<std::shared_ptr<Node>> drawableSceneCache;
 		bool cacheDirty = false;
 
-		std::vector<std::shared_ptr<Texture>> loadMaterialTextures(aiMaterial* mat, aiTextureType type, size_t typeID);
-		void processAINode(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
-		void createMesh(aiNode* node, const aiScene* scene, std::shared_ptr<Node> parentNode);
 	};
 } // namespace Geometry
 } // namespace Sparkle

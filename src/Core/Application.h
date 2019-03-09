@@ -48,8 +48,9 @@ private:
     std::shared_ptr<Camera> pCamera;
     std::shared_ptr<InputController> pInputController = nullptr;
     std::shared_ptr<Geometry::Scene> pScene;
-
     std::shared_ptr<Sparkle::RenderBackend> pRenderer;
+	std::unique_ptr<Import::SceneLoader> pSceneLoader = nullptr;
+	std::future<void> levelLoadFuture;
 
     int windowWidth = WINDOW_WIDTH;
     int windowHeight = WINDOW_HEIGHT;

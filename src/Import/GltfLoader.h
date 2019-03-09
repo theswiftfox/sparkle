@@ -1,10 +1,15 @@
 #ifndef GLTF_LOADER_H
 #define GLTF_LOADER_H
 
-namespace Sparkle {
-namespace Utils {
-	class glTFLoader {
+#include <tinygltf/tiny_gltf.h>
 
+namespace Sparkle {
+namespace Import {
+	class glTFLoader {
+	public:
+		void loadFromFile(std::string filePath);
+
+	private:
 	};
 } // namespace Utils
 } // namespace Sparkle
