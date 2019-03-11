@@ -257,11 +257,11 @@ void Import::AssimpLoader::loadFromFile(const std::string& fileName)
 		}
 		auto err = std::string(importer.GetErrorString());
 		if (!err.empty()) {
-			std::cout << __FUNCTION__ << ": ImportError: " << err << std::endl;
+			LOGSTDOUT(err)
 		}
 		if (!scenePtr) {
 			// todo error logging in gui!
-			std::cout << "Unable to load scene from " + fileName << std::endl;
+			LOGSTDOUT("Unable to load scene from " + fileName);
 			return;
 		}
 
