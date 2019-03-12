@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "Geometry.h"
+
 #include <tinygltf/tiny_gltf.h>
 
 namespace Sparkle {
@@ -22,7 +23,7 @@ namespace Import {
 
 		void loadMaterials();
 		void loadTextures();
-		void loadNode(std::shared_ptr<Geometry::Node> parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model);
+		void loadNode(std::shared_ptr<Geometry::Node> parent, const tinygltf::Node& node);
 	};
 } // namespace Utils
 } // namespace Sparkle
