@@ -24,6 +24,8 @@ namespace Import {
 		std::map<std::string, std::string> textureFiles;
 		std::vector<std::shared_ptr<Material>> materialCache;
 
+		std::vector<std::pair<std::string, int>> texFileNames = { { "_albedo", TEX_TYPE_DIFFUSE }, { "_metallic", TEX_TYPE_METALLIC }, { "_normal", TEX_TYPE_NORMAL }, { "_roughness", TEX_TYPE_ROUGHNESS } };
+
 		std::mutex sceneMutex;
 		Assimp::Importer importer;
 		const aiScene* scenePtr;

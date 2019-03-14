@@ -19,6 +19,8 @@ bool Sparkle::IO::isImageExtension(std::string ext)
 		return true;
 	if (ext.compare(".jpg") == 0)
 		return true;
+	if (ext.compare(".jpeg") == 0)
+		return true;
 	if (ext.compare(".bmp") == 0)
 		return true;
 	return false;
