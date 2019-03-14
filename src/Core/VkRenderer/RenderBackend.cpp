@@ -144,6 +144,8 @@ void RenderBackend::draw(double deltaT)
 
 			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
 			    "Error occured during rendering pass");
+
+			drawCount = -1;
 		}
 	}
 
@@ -198,47 +200,57 @@ void RenderBackend::draw(double deltaT)
 	}
 
 	frameCounter = (frameCounter + 1) % MAX_FRAMES_IN_FLIGHT;
+
+	if ((computeEnabled) && pIndirectDrawCountBuffer.buffer) {
+		uint32_t tmp = 0;
+		memcpy(&tmp, pIndirectDrawCountBuffer.mapped(), sizeof(uint32_t));
+		drawCount = tmp;
+	}
 	// TODO: wait for the render to finish here until i figure out the issue with laggy mouse cursor when using tripple
 	// buffering
 	//vkDeviceWaitIdle(pVulkanDevice);
 }
 
-void RenderBackend::updateUiData(GUI::FrameData uiData) { pUi->updateFrame(uiData); }
-
-void RenderBackend::updateUniforms()
+void RenderBackend::updateUiData(GUI::FrameData uiData)
 {
-	int width, height;
-	glfwGetWindowSize(pWindow, &width, &height);
+	uiData.drawCount = drawCount;
+	pUi->updateFrame(uiData);
+}
 
-	Shaders::ShaderProgram::UniformBufferObject ubo = {};
-
-	ubo.view = pCamera->getView();
-	ubo.projection = pCamera->getProjection();
+void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
+{
+	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
 
 	fragmentUBO.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
 	fragmentUBO.gamma = pUi->getGamma();
 	fragmentUBO.exposure = pUi->getExposure();
-
-	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
-
-	vkDeviceWaitIdle(pVulkanDevice);
-	shaderProg->updateUniformBufferObject(ubo);
 	shaderProg->updateFragmentShaderUniforms(fragmentUBO);
-	if (updateGeometry && pScene) {
-		shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
-		updateGeometry = false;
+
+	if (updatedCam || updateGeometry) {
+
+		Shaders::ShaderProgram::UniformBufferObject ubo = {};
+
+		ubo.view = pCamera->getView();
+		ubo.projection = pCamera->getProjection();
+
+		vkDeviceWaitIdle(pVulkanDevice);
+		shaderProg->updateUniformBufferObject(ubo);
+		if (updateGeometry && pScene) {
+			shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+			updateGeometry = false;
+		}
+
+		// frustum
+		auto vp = ubo.projection * ubo.view;
+		compute.ubo.frustumPlanes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]); // left
+		compute.ubo.frustumPlanes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]); // right
+		compute.ubo.frustumPlanes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]); // bottom
+		compute.ubo.frustumPlanes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]); // top
+		compute.ubo.frustumPlanes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]); // near
+		compute.ubo.frustumPlanes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]); // far
+
+		compute.updateUBO(compute.ubo);
 	}
-
-	// frustum
-	auto vp = ubo.projection * ubo.view;
-	compute.ubo.frustumPlanes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]); // left
-	compute.ubo.frustumPlanes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]); // right
-	compute.ubo.frustumPlanes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]); // bottom
-	compute.ubo.frustumPlanes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]); // top
-	compute.ubo.frustumPlanes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]); // near
-	compute.ubo.frustumPlanes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]); // far
-
-	compute.updateUBO(compute.ubo);
 }
 
 void RenderBackend::cleanupSwapChain()
@@ -608,7 +620,7 @@ void RenderBackend::recordComputeCmdBuffers()
 		staging.copyTo(meshData.data(), stSize);
 		staging.unmap();
 		pInstanceBuffer.copyToBuffer(pCommandPool, pGraphicsQueue, staging, stSize);
-	//	pInstanceBuffer.flush();
+		//	pInstanceBuffer.flush();
 		staging.destroy(true);
 		delete (stagingMem);
 
@@ -626,7 +638,7 @@ void RenderBackend::recordComputeCmdBuffers()
 			delete (ppIndirectDrawCountMemory);
 		}
 		ppIndirectDrawCountMemory = new vkExt::SharedMemory();
-		idcSize = meshData.size() * sizeof(uint32_t);
+		idcSize = sizeof(uint32_t);
 		createBuffer(idcSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pIndirectDrawCountBuffer, ppIndirectDrawCountMemory);
 
 		std::array<VkWriteDescriptorSet, 4> writes = {
@@ -721,7 +733,8 @@ void RenderBackend::destroyCommandBuffers()
 	    commandBuffers.data());
 }
 
-void RenderBackend::updateScenePtr(std::shared_ptr<Geometry::Scene> scene) {
+void RenderBackend::updateScenePtr(std::shared_ptr<Geometry::Scene> scene)
+{
 	if (pScene) {
 		pScene->cleanup();
 	}

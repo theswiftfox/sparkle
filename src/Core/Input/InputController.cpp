@@ -42,6 +42,11 @@ void InputController::glfwKeyCallback(GLFWwindow* window, int key, int scancode,
             Sparkle::App::getHandle().getRenderBackend()->getUiHandle()->toggleOptions();
         }
     }
+	if (key == GLFW_KEY_F2) {
+		if (action == GLFW_RELEASE) {
+			Sparkle::App::getHandle().getRenderBackend()->toggleComputeEnabled();
+		}
+	}
 }
 
 void InputController::update(float deltaT)

@@ -68,6 +68,11 @@ void App::mainLoop()
     auto lastFrameTime = 0.0;
     size_t frames = 0;
     double mx, my;
+	ImGuiIO& io = ImGui::GetIO();
+
+	glm::vec3 initialCameraPos = glm::vec3(16.0f, 90.0f, -50.0f);
+	pCamera->setPosition(initialCameraPos);
+	//pCamera->setAngle(28.0f, 165.f);
 
     double updateFreq = -1.0;
     while (!glfwWindowShouldClose(pWindow)) {
@@ -90,17 +95,18 @@ void App::mainLoop()
 
         // Update imGui
         ImGui::NewFrame();
-        ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
         io.DeltaTime = (float)deltaT;
         glfwGetCursorPos(pWindow, &mx, &my);
         io.MousePos = ImVec2((float)mx, (float)my);
 
         pInputController->update((float)deltaT);
+		bool updatedCam = false;
         if (pCamera->changed()) {
             pCamera->update((float)deltaT);
-            pRenderer->updateUniforms();
+			updatedCam = true;
         }
+		pRenderer->updateUniforms(updatedCam);
         pRenderer->updateUiData(frameData);
         pRenderer->draw(deltaT);
 

@@ -86,6 +86,8 @@ namespace Geometry {
 			children = nodes;
 		}
 
+		void setParent(std::shared_ptr<Node>& par) { parent = par; }
+
 		void translate(glm::vec3 direction);
 		void rotate(glm::mat3 rotation);
 		void scaleUniform(float scaleFactor);

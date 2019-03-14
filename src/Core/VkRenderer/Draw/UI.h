@@ -19,6 +19,7 @@ class GUI : public Assimp::ProgressHandler {
 public:
     struct FrameData {
         size_t fps;
+		int drawCount;
     };
     struct ProgressData {
         bool isLoading;
@@ -114,6 +115,7 @@ private:
     float exposure = 1.0f;
 
     bool showOptions = false;
+	bool showStatus = false;
 
     static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
     void initResources();

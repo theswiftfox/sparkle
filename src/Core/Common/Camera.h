@@ -27,6 +27,7 @@ public:
     void moveLeft(float deltaT);
     void moveRight(float deltaT);
     void setAngle(float x, float y);
+	void setPosition(glm::vec3 pos);
 
     glm::vec3 getPosition() const;
     glm::mat4 getView() const;
