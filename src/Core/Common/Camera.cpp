@@ -126,3 +126,8 @@ void Camera::setAngle(float x, float y)
         vAngle = 1.5;
     hasChanged = true;
 }
+
+void Camera::setPosition(glm::vec3 pos) {
+	cameraPos = pos;
+	hasChanged = true;
+}

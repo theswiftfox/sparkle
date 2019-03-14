@@ -292,15 +292,29 @@ void Import::AssimpLoader::loadFromFile(const std::string& fileName)
 	});
 }
 
-std::unique_ptr<Geometry::Scene> Import::AssimpLoader::processAssimp()
+std::unique_ptr<Scene> Import::AssimpLoader::processAssimp()
 {
 	levelLoadFuture.get();
-	auto scene = std::make_unique<Geometry::Scene>();
+	auto scene = std::make_unique<Scene>();
 	{
 		std::lock_guard<std::mutex> lock(sceneMutex);
 		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_DIFFUSE));
 		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/spec.png", TEX_TYPE_SPECULAR));
-		processAINode(scenePtr->mRootNode, scenePtr, scene->getRootNodePtr());
+		// THIS IS ONLY FOR TESTING OF CULLING:
+		auto localRoot = std::make_shared<Node>();
+		//processAINode(scenePtr->mRootNode, scenePtr, scene->getRootNodePtr());
+		processAINode(scenePtr->mRootNode, scenePtr, localRoot);
+		auto sceneRoot = scene->getRootNodePtr();
+		auto mesh = std::static_pointer_cast<Mesh, Node>(localRoot->getDrawableSceneAsFlatVec().front());
+		for (int i = 0; i < 100; ++i) {
+			for (int j = -50; j < 50; ++j) {
+				auto ptr = std::make_shared<Mesh>(*mesh);
+				ptr->translate(glm::vec3(j * 2.0f, 1.0f, i * 2.0f));
+				ptr->setParent(sceneRoot);
+				sceneRoot->addChild(std::static_pointer_cast<Node, Mesh>(ptr));
+			}
+		}
+
 		importer.SetProgressHandler(nullptr); // important! Importer's destructor calls delete on the progress handler pointer!
 		importer.FreeScene();
 		App::getHandle().getRenderBackend()->getUiHandle()->Update();

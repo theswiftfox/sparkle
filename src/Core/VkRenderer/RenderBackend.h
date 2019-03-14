@@ -38,12 +38,13 @@ public:
 
 	void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
 	void draw(double deltaT);
-	void updateUniforms();
+	void updateUniforms(bool updatedCam = false);
 	void updateUiData(GUI::FrameData uiData);
 	void updateScenePtr(std::shared_ptr<Geometry::Scene> scene);
 
 	void cleanup();
 	void reloadShaders();
+	void toggleComputeEnabled() { computeEnabled = !computeEnabled; }
 
 	Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
@@ -185,6 +186,7 @@ private:
 	std::vector<VkImageView> deviceCreatedImageViews;
 
 	bool updateGeometry = true;
+	int drawCount = -1;
 
 	void setupVulkan();
 
