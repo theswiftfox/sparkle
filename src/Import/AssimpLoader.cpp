@@ -177,23 +177,25 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 			if (textures.empty()) { // workaround for current blender export error - should be fixed when using own level format!
 				auto matName = std::string(aiMat->GetName().C_Str());
 				matName = matName.substr(0, matName.find_first_of('.'));
-				if (textureFiles.find(matName) != textureFiles.end()) {
-					auto texFile = rootDirectory + textureFiles[matName];
-					bool isLoaded = false;
-					for (const auto& tex : textureCache) {
-						if (tex->path().compare(texFile) == 0) {
+				for (const auto& t : texFileNames) {
+					auto tname = matName + t.first;
+					if (textureFiles.find(tname) != textureFiles.end()) {
+						auto texFile = rootDirectory + textureFiles[tname];
+						bool isLoaded = false;
+						for (const auto& tex : textureCache) {
+							if (tex->path().compare(texFile) == 0) {
+								textures.push_back(tex);
+								isLoaded = true;
+								break;
+							}
+						}
+
+						if (!isLoaded) {
+							auto tex = std::make_shared<Texture>(texFile, t.second);
+							textureCache.push_back(tex);
 							textures.push_back(tex);
-							isLoaded = true;
-							break;
 						}
 					}
-
-					if (!isLoaded) {
-						auto tex = std::make_shared<Texture>(texFile, TEX_TYPE_DIFFUSE);
-						textureCache.push_back(tex);
-						textures.push_back(tex);
-					}
-					textures.push_back(textureCache[1]); // load default spec texture
 				}
 			}
 			if (textures.size() == 0) {
