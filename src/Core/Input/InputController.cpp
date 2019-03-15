@@ -32,19 +32,24 @@ void InputController::glfwCallback(GLFWwindow* window, int button, int action, i
 
 void InputController::glfwKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if (key == GLFW_KEY_F5) {
-        if (action == GLFW_RELEASE) {
-            Sparkle::App::getHandle().getRenderBackend()->reloadShaders();
-        }
-    }
-    if (key == GLFW_KEY_F3) {
+    if (key == GLFW_KEY_F1) {
         if (action == GLFW_RELEASE) {
             Sparkle::App::getHandle().getRenderBackend()->getUiHandle()->toggleOptions();
         }
     }
-	if (key == GLFW_KEY_F2) {
+	if (key == GLFW_KEY_F3) {
+		if (action == GLFW_RELEASE) {
+			Sparkle::App::getHandle().getRenderBackend()->toggleCPUCullEnabled();
+		}
+	}
+	if (key == GLFW_KEY_F4) {
 		if (action == GLFW_RELEASE) {
 			Sparkle::App::getHandle().getRenderBackend()->toggleComputeEnabled();
+		}
+	}
+	if (key == GLFW_KEY_F5) {
+		if (action == GLFW_RELEASE) {
+			Sparkle::App::getHandle().getRenderBackend()->reloadShaders();
 		}
 	}
 }

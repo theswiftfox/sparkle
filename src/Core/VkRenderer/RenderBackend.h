@@ -45,6 +45,7 @@ public:
 	void cleanup();
 	void reloadShaders();
 	void toggleComputeEnabled() { computeEnabled = !computeEnabled; }
+	void toggleCPUCullEnabled() { cullCPU = !cullCPU; }
 
 	Geometry::Mesh::BufferOffset uploadMeshGPU(const Geometry::Mesh* mesh);
 
@@ -110,6 +111,7 @@ private:
 
 	ComputePipeline compute;
 	bool computeEnabled = true;
+	bool cullCPU = false;
 
 	VkQueue pGraphicsQueue;
 	VkQueue pPresentQueue;
@@ -146,6 +148,7 @@ private:
 	VkCommandBuffer offScreenCmdBuffer;
 
 	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> singleFrameCmdBuffers;
 	std::vector<VkCommandBuffer> offScreenBuffers;
 	std::vector<VkCommandBuffer> uiCommandBuffers;
 
