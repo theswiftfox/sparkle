@@ -14,7 +14,7 @@ namespace Sparkle {
 class App;
 namespace Shaders {
 
-#define SPARKLE_SHADER_LIMIT_LIGHTS 9
+#define SPARKLE_SHADER_LIMIT_LIGHTS 1000
 
 	enum ShaderType {
 		Vertex,

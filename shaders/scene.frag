@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-#define SPARKLE_SHADER_LIMIT_LIGHTS 9
+#define SPARKLE_SHADER_LIMIT_LIGHTS 1000
 
 #define SPARKLE_MAT_NORMAL_MAP 0x010
 #define SPARKLE_MAT_PBR 0x100
@@ -177,7 +177,7 @@ void main() {
 		vec3 F0 = mix(vec3(0.04), albedo, metallic);
 		
 		vec3 lo = vec3(0.0);
-		for (int i = 0; i < 9; i++) {
+		for (int i = 0; i < ubo.numberOfLights; i++) {
 			lo += BRDF(V, N, albedo, F0, ubo.lights[i], metallic, roughness);
 		}
 		vec3 color = albedo * 0.03 + lo;
@@ -191,7 +191,7 @@ void main() {
 		vec3 specColor = texture(specular, fs_in.uv).rgb;
 
 		vec3 lo;
-		for (int i = 0; i < SPARKLE_SHADER_LIMIT_LIGHTS; ++i) {
+		for (int i = 0; i < ubo.numberOfLights; ++i) {
 			lo += blinnPhong(pos, N, V, diffColor, specColor, i);
 		}
 		vec3 color = vec3(0.03) * texture(diffuse, fs_in.uv).rgb + lo;
