@@ -907,6 +907,7 @@ void RenderBackend::initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col
 	light->mRadius = radius;
 }
 
+// todo: this should be part of scene not renderer!
 void RenderBackend::setupLights()
 {
 	// light setup for sponza base idea from https://github.com/SaschaWillems/VulkanSponza
