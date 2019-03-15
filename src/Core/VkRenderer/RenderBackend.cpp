@@ -103,49 +103,154 @@ void RenderBackend::draw(double deltaT)
 		VkSubmitInfo renderInfo {};
 		renderInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		renderInfo.commandBufferCount = 1;
-		renderInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
 		VkSemaphore signalSemaphores[] = { semRenderFinished[frameCounter] };
 		renderInfo.signalSemaphoreCount = 1;
 		renderInfo.pSignalSemaphores = signalSemaphores;
 
-		if (computeEnabled) {
-			vkWaitForFences(pVulkanDevice, 1, &compute.fences[imageIndex], VK_TRUE, uint64_t(5e+9));
-			vkResetFences(pVulkanDevice, 1, &compute.fences[imageIndex]);
-
-			VkSubmitInfo computeInfo = {};
-			computeInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			computeInfo.commandBufferCount = 1;
-			computeInfo.pCommandBuffers = &compute.cmdBuffers[imageIndex];
-			computeInfo.signalSemaphoreCount = 1;
-			computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
-
-			//VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
-			//    "Error occured during compute pass");
-			auto cerr = vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr);
-			if (cerr != VK_SUCCESS) {
-				throw std::runtime_error("Error occured during compute pass");
-			}
-
-			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
-			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-			renderInfo.waitSemaphoreCount = 2;
-			renderInfo.pWaitSemaphores = waitSemaphores;
-			renderInfo.pWaitDstStageMask = waitStages;
-
-			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fences[imageIndex]),
-			    "Error occured during rendering pass");
-		} else {
+		if (cullCPU) {
+			drawCount = 0;
 			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
 			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 			renderInfo.waitSemaphoreCount = 1;
 			renderInfo.pWaitSemaphores = waitSemaphores;
 			renderInfo.pWaitDstStageMask = waitStages;
 
-			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
-			    "Error occured during rendering pass");
+			if (singleFrameCmdBuffers[imageIndex]) {
+				vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &singleFrameCmdBuffers[imageIndex]);
+			}
+			singleFrameCmdBuffers[imageIndex] = beginOneTimeCommand();
 
-			drawCount = -1;
+			VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
+
+			VkImageSubresourceRange imageRange = {};
+			imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imageRange.levelCount = 1;
+			imageRange.layerCount = 1;
+			VkImageSubresourceRange depthRange = {};
+			depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			depthRange.levelCount = 1;
+			depthRange.layerCount = 1;
+
+			transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+			vkCmdClearColorImage(singleFrameCmdBuffers[imageIndex], swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor, 1, &imageRange);
+			transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+			transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+			vkCmdClearDepthStencilImage(singleFrameCmdBuffers[imageIndex], depthImages[imageIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cDepthColor, 1, &depthRange);
+			transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+
+			VkRenderPassBeginInfo renderPassInfo {};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassInfo.renderPass = pGraphicsPipeline->getRenderPassPtr();
+			renderPassInfo.framebuffer = pGraphicsPipeline->getFramebufferPtrs()[imageIndex];
+			renderPassInfo.clearValueCount = 0;
+			renderPassInfo.renderArea.offset = { 0, 0 };
+			renderPassInfo.renderArea.extent = swapChainExtent;
+
+			vkCmdBeginRenderPass(singleFrameCmdBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			vkCmdBindPipeline(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getVkGraphicsPipelinePtr());
+			if (pDrawBuffer.buffer) {
+				VkBuffer vtxBuffers[] = { pDrawBuffer.buffer };
+				vkCmdBindIndexBuffer(singleFrameCmdBuffers[imageIndex], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
+
+				const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
+				const auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
+
+				uint32_t j = 0;
+				if (pCamera) {
+					auto vp = pCamera->getViewProjectionMatrix();
+					auto frustum = {
+						glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]), // left
+						glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]), // right
+						glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]), // bottom
+						glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]), // top
+						glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]), // near
+						glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]) // far
+					};
+					auto fc = [&frustum](glm::vec4 pos) {
+						for (const auto& plane : frustum) {
+							if (glm::dot(pos, plane) + 1.0f < 0.0) {
+								return false;
+							}
+						}
+						return true;
+					};
+
+					for (auto& node : meshes) {
+						if (!node->drawable())
+							continue;
+
+						auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
+						auto pos = mesh->modelMat()[3];
+
+						VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
+						vkCmdBindVertexBuffers(singleFrameCmdBuffers[imageIndex], 0, 1, vtxBuffers, offsets);
+
+						std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
+
+						std::vector<VkDescriptorSet> sets;
+						sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
+						sets.push_back(mesh->getMaterial()->getDescriptorSet());
+
+						if (fc(pos)) {
+							auto pc = mesh->getMaterial()->getUniforms();
+							vkCmdPushConstants(singleFrameCmdBuffers[imageIndex], pGraphicsPipeline->getPipelineLayoutPtr(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
+							vkCmdBindDescriptorSets(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+							vkCmdDrawIndexed(singleFrameCmdBuffers[imageIndex], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
+							drawCount++;
+						}
+						++j;
+					}
+				}
+			}
+			vkCmdEndRenderPass(singleFrameCmdBuffers[imageIndex]);
+
+			VK_THROW_ON_ERROR(vkEndCommandBuffer(singleFrameCmdBuffers[imageIndex]), "End command buffer recording failed!");
+
+			renderInfo.pCommandBuffers = &singleFrameCmdBuffers[imageIndex];
+			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr), "Error occured during rendering pass");
+		} else {
+			renderInfo.pCommandBuffers = &commandBuffers[imageIndex];
+
+			if (computeEnabled) {
+				vkWaitForFences(pVulkanDevice, 1, &compute.fences[imageIndex], VK_TRUE, uint64_t(5e+9));
+				vkResetFences(pVulkanDevice, 1, &compute.fences[imageIndex]);
+
+				VkSubmitInfo computeInfo = {};
+				computeInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				computeInfo.commandBufferCount = 1;
+				computeInfo.pCommandBuffers = &compute.cmdBuffers[imageIndex];
+				computeInfo.signalSemaphoreCount = 1;
+				computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
+
+				//VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
+				//    "Error occured during compute pass");
+				auto cerr = vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr);
+				if (cerr != VK_SUCCESS) {
+					throw std::runtime_error("Error occured during compute pass");
+				}
+
+				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
+				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+				renderInfo.waitSemaphoreCount = 2;
+				renderInfo.pWaitSemaphores = waitSemaphores;
+				renderInfo.pWaitDstStageMask = waitStages;
+
+				VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fences[imageIndex]),
+				    "Error occured during rendering pass");
+			} else {
+				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
+				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+				renderInfo.waitSemaphoreCount = 1;
+				renderInfo.pWaitSemaphores = waitSemaphores;
+				renderInfo.pWaitDstStageMask = waitStages;
+
+				VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
+				    "Error occured during rendering pass");
+
+				drawCount = pScene->getRenderableScene().size();
+			}
 		}
 	}
 
@@ -201,7 +306,7 @@ void RenderBackend::draw(double deltaT)
 
 	frameCounter = (frameCounter + 1) % MAX_FRAMES_IN_FLIGHT;
 
-	if ((computeEnabled) && pIndirectDrawCountBuffer.buffer) {
+	if ((computeEnabled) && (!cullCPU) && pIndirectDrawCountBuffer.buffer) {
 		uint32_t tmp = 0;
 		memcpy(&tmp, pIndirectDrawCountBuffer.mapped(), sizeof(uint32_t));
 		drawCount = tmp;
@@ -255,8 +360,8 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 
 void RenderBackend::cleanupSwapChain()
 {
-	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()),
-	    commandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(singleFrameCmdBuffers.size()), singleFrameCmdBuffers.data());
 
 	pUi->cleanup();
 	pUi.reset();
@@ -774,6 +879,7 @@ void RenderBackend::createCommandBuffers()
 {
 	commandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
 	uiCommandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
+	singleFrameCmdBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
 
 	VkCommandBufferAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, pCommandPool,
 		VK_COMMAND_BUFFER_LEVEL_PRIMARY, (uint32_t)commandBuffers.size() };
