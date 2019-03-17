@@ -224,13 +224,8 @@ void RenderBackend::draw(double deltaT)
 				computeInfo.signalSemaphoreCount = 1;
 				computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
 
-				//VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr),
-				//    "Error occured during compute pass");
-				auto cerr = vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr);
-				if (cerr != VK_SUCCESS) {
-					throw std::runtime_error("Error occured during compute pass");
-				}
-
+				VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr), "Error occured during compute pass");
+				
 				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
 				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 				renderInfo.waitSemaphoreCount = 2;
@@ -353,6 +348,7 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 		compute.ubo.frustumPlanes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]); // top
 		compute.ubo.frustumPlanes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]); // near
 		compute.ubo.frustumPlanes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]); // far
+		compute.ubo.cameraPos = fragmentUBO.cameraPos;
 
 		compute.updateUBO(compute.ubo);
 	}
@@ -577,8 +573,9 @@ void RenderBackend::createSurface()
 void RenderBackend::recreateSwapChain()
 {
 	vkDeviceWaitIdle(pVulkanDevice); // do not destroy old swapchain while in use!
-
 	cleanupSwapChain();
+
+	glfwGetWindowSize(pWindow, &viewportWidth, &viewportWidth);
 
 	createSwapChain();
 	createImageViews();
