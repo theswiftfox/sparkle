@@ -104,6 +104,9 @@ namespace Geometry {
 		std::string ID;
 
 		glm::mat4 model;
+
+		glm::mat4 cachedModel;
+		bool dirty = true;
 	};
 
 	class Mesh : public Node {
@@ -116,6 +119,7 @@ namespace Geometry {
 		struct MeshData {
 			std::vector<Vertex> vertices;
 			std::vector<uint32_t> indices;
+			BoundingSphere boundingSphere;
 		};
 
 		Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<Node> parent = nullptr, glm::mat4 model = glm::mat4(1.0f));
@@ -146,10 +150,14 @@ namespace Geometry {
 			return model;
 		}
 
+		auto getBounds() const { return boundingSphere; }
+
 		size_t size() const { return indices.size(); }
 
 	private:
 		glm::mat4 initialModel;
+
+		BoundingSphere boundingSphere;
 
 		void meshFromVertsAndIndices(std::vector<Vertex> verts, std::vector<uint32_t> inds);
 	};

@@ -7,8 +7,14 @@
 //--------------------------------------------------------------------------------------
 #version 450
 
+struct BoundingSphere {
+	vec3 center;
+	float radius;
+};
+
 struct MeshData {
 	mat4 model;
+	BoundingSphere bb;
 	uint firstIndex;
 	uint indexCount;
 	vec2 pad;
@@ -41,8 +47,13 @@ layout(binding=3) buffer OutBuffer {
 
 layout(local_size_x = 16) in;
 
-bool checkFrustum(vec4 pos, float rad) {
-	for (uint i = 0; i < 6; ++i) {
+bool insideFrustum(uint idx) {
+	BoundingSphere bb = Meshes[idx].bb;
+	mat4 model = Meshes[idx].model;
+	vec4 pos = model * vec4(bb.center, 1.0);
+	float scale = length(vec3(model[0][0], model[1][0], model[2][0]));
+	float rad = scale * bb.radius;
+	for (uint i = 0; i < 6; ++i) {			
 		if (dot(pos, ubo.frustumCube[i]) + rad < 0.0) {
 			return false;
 		}
@@ -59,12 +70,7 @@ void main() {
 		atomicExchange(outBuffer.drawCount, 0);
 	}
 
-	mat4 iModel = Meshes[idx].model;
-	vec4 pos = iModel[3];
-
-	// todo: replace the radius check with bounding box check!
-	float rad = 4.0f / (1.0f + log(length(pos - ubo.cameraPosition)));
-	if (checkFrustum(pos, rad)) {
+	if (insideFrustum(idx)) {
 		indirectDraws[idx].instanceCount = 1;
 		indirectDraws[idx].firstIndex = Meshes[idx].firstIndex;
 		indirectDraws[idx].indexCount = Meshes[idx].indexCount;

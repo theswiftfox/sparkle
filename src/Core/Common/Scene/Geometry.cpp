@@ -11,6 +11,7 @@ Mesh::Mesh(MeshData data, std::shared_ptr<Material> material, std::shared_ptr<No
 	this->model = model;
 	this->material = material;
 	this->parent = parent;
+	this->boundingSphere = data.boundingSphere;
 	if (material) { // only upload drawable meshes to gpu!
 		meshFromVertsAndIndices(data.vertices, data.indices);
 	}
@@ -31,11 +32,14 @@ void Mesh::meshFromVertsAndIndices(std::vector<Vertex> verts, std::vector<uint32
 
 glm::mat4 Node::accumModel()
 {
-	glm::mat4 m(1.0f);
-	if (parent) {
-		m = parent->accumModel();
+	if (dirty) {
+		glm::mat4 m(1.0f);
+		if (parent) {
+			m = parent->accumModel();
+		}
+		cachedModel =  m * model;
 	}
-	return m * model;
+	return cachedModel;
 }
 
 std::vector<std::shared_ptr<Node>> Node::getDrawableSceneAsFlatVec()
@@ -43,6 +47,7 @@ std::vector<std::shared_ptr<Node>> Node::getDrawableSceneAsFlatVec()
 	std::vector<std::shared_ptr<Node>> nodes;
 	for (const auto& c : children) {
 		if (c->drawable()) {
+			c->dirty = true;
 			nodes.push_back(c);
 		}
 		auto childNodes = c->getDrawableSceneAsFlatVec();

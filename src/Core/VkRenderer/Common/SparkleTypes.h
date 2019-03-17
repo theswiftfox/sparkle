@@ -34,4 +34,11 @@ namespace Vulkan {
 		std::vector<VkPresentModeKHR> presentModes {};
 	};
 } // namespace Vulkan
+
+namespace Geometry {
+	struct BoundingSphere {
+		glm::vec3 center;
+		float radius;
+	};
+}
 } // namespace Sparkle

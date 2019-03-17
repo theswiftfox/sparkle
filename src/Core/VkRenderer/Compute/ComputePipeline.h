@@ -2,6 +2,7 @@
 #define COMPUTE_PIPELINE_H
 
 #include "VulkanExtension.h"
+#include "SparkleTypes.h"
 
 #include "Shader.h"
 
@@ -14,6 +15,7 @@ struct ComputePipeline {
 
 	struct MeshData {
 		glm::mat4 model;
+		Geometry::BoundingSphere boundingSphere;
 		uint32_t firstIndex;
 		uint32_t indexCount;
 		glm::vec2 pad;
