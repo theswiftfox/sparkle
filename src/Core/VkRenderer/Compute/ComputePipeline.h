@@ -10,7 +10,8 @@ namespace Sparkle {
 struct ComputePipeline {
 	struct UBO {
 		glm::vec4 frustumPlanes[6];
-		glm::vec4 cameraPos;
+		glm::vec3 cameraPos;
+		uint32_t meshCount;
 	} ubo;
 
 	struct MeshData {

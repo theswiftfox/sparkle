@@ -172,6 +172,9 @@ void RenderBackend::draw(double deltaT)
 						auto pos = model * glm::vec4(sphere.center, 1.0f);
 						float scale = glm::length(glm::vec3(model[0][0], model[1][0], model[2][0]));
 						float rad = scale * sphere.radius;
+						if (scale < 1.0)
+							rad += 10.0;
+
 						for (const auto& plane : frustum)
 						{
 							if (glm::dot(pos, plane) + rad < 0.0) {
@@ -353,7 +356,7 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 		compute.ubo.frustumPlanes[3] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1])); // top
 		compute.ubo.frustumPlanes[4] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2])); // near
 		compute.ubo.frustumPlanes[5] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2])); // far
-		compute.ubo.cameraPos = fragmentUBO.cameraPos;
+		compute.ubo.cameraPos = pCamera->getPosition();
 
 		compute.updateUBO(compute.ubo);
 	}
@@ -713,6 +716,8 @@ void RenderBackend::recordComputeCmdBuffers()
 			data.firstIndex = mesh->bufferOffset.indexOffs;
 			meshData.push_back(data);
 		}
+
+		compute.ubo.meshCount = static_cast<uint32_t>(meshData.size());
 
 		VkDeviceSize stSize = meshData.size() * sizeof(ComputePipeline::MeshData);
 		createBuffer(stSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem);

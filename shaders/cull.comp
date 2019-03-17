@@ -38,7 +38,8 @@ layout(binding=1, std430) writeonly buffer IndirectDraws {
 
 layout(binding=2) uniform UBO {
 	vec4 frustumCube[6];
-	vec4 cameraPosition;
+	vec3 cameraPosition;
+	uint meshCount;
 } ubo;
 
 layout(binding=3) buffer OutBuffer {
@@ -53,6 +54,8 @@ bool insideFrustum(uint idx) {
 	vec4 pos = model * vec4(bb.center, 1.0);
 	float scale = length(vec3(model[0][0], model[1][0], model[2][0]));
 	float rad = scale * bb.radius;
+	if (scale < 1.0) rad += 10.0; // workaround for very small bounding spheres not working...
+
 	for (uint i = 0; i < 6; ++i) {			
 		if (dot(pos, ubo.frustumCube[i]) + rad < 0.0) {
 			return false;
@@ -65,6 +68,7 @@ layout(local_size_x = 16) in;
 
 void main() {
 	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+	if (idx >= ubo.meshCount) return;
 
 	if (idx == 0) {
 		atomicExchange(outBuffer.drawCount, 0);
