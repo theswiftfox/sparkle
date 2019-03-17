@@ -21,7 +21,7 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 		assimpImporter.reset();
 	}
 	auto path = fs::path(filePath);
-	if (path.extension() == ".gltf") {
+	if (path.extension() == ".gltf1") {
 		glTFImporter = std::make_unique<Import::glTFLoader>();
 		glTFImporter->loadFromFile(filePath);
 	} else {

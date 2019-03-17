@@ -11,6 +11,8 @@
 
 #include "Util.h"
 
+#include <limits>
+
 #ifdef _WIN32
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -133,6 +135,9 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 
 		Mesh::MeshData data;
 
+		glm::vec3 minVtx(std::numeric_limits<float>::max());
+		glm::vec3 maxVtx(std::numeric_limits<float>::min());
+
 		for (size_t j = 0; j < aiMeshData->mNumVertices; ++j) {
 			auto aiVtx = aiMeshData->mVertices[j];
 			Vertex vtx;
@@ -153,6 +158,19 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 				auto tc = aiMeshData->mTextureCoords[0][j];
 				vtx.texCoord = glm::vec2(tc.x, tc.y);
 			}
+
+			if (aiVtx.x < minVtx.x)
+				minVtx.x = aiVtx.x;
+			if (aiVtx.y < minVtx.y)
+				minVtx.y = aiVtx.y;
+			if (aiVtx.z < minVtx.z)
+				minVtx.z = aiVtx.z;
+			if (aiVtx.x > maxVtx.x)
+				maxVtx.x = aiVtx.x;
+			if (aiVtx.y > maxVtx.y)
+				maxVtx.y = aiVtx.y;
+			if (aiVtx.z > maxVtx.z)
+				maxVtx.z = aiVtx.z;
 
 			data.vertices.push_back(vtx);
 		}
@@ -230,6 +248,14 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 		};
 
 		glm::mat4 nodeModel = glm::make_mat4(tvals);
+		//minVtx = glm::vec3(nodeModel * glm::vec4(minVtx, 1.0f));
+		//maxVtx = glm::vec3(nodeModel * glm::vec4(maxVtx, 1.0f));
+		auto center = (minVtx + maxVtx) / 2.0f;
+		auto rad = glm::length(minVtx - center);
+		data.boundingSphere = { 
+			center,
+			rad 
+		};
 
 		auto mesh = std::make_shared<Mesh>(data, material, meshRoot, nodeModel);
 
@@ -302,20 +328,24 @@ std::unique_ptr<Scene> Import::AssimpLoader::processAssimp()
 		std::lock_guard<std::mutex> lock(sceneMutex);
 		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_DIFFUSE));
 		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/spec.png", TEX_TYPE_SPECULAR));
+
 		// THIS IS ONLY FOR TESTING OF CULLING:
 		auto localRoot = std::make_shared<Node>();
-		//processAINode(scenePtr->mRootNode, scenePtr, scene->getRootNodePtr());
 		processAINode(scenePtr->mRootNode, scenePtr, localRoot);
 		auto sceneRoot = scene->getRootNodePtr();
 		auto mesh = std::static_pointer_cast<Mesh, Node>(localRoot->getDrawableSceneAsFlatVec().front());
-		for (int i = 0; i < 100; ++i) {
-			for (int j = -50; j < 50; ++j) {
+		for (int i = 0; i < 100; ++i)
+		{
+			for (int j = -50; j < 50; ++j)
+			{
 				auto ptr = std::make_shared<Mesh>(*mesh);
 				ptr->translate(glm::vec3(j * 2.0f, 1.0f, i * 2.0f));
 				ptr->setParent(sceneRoot);
 				sceneRoot->addChild(std::static_pointer_cast<Node, Mesh>(ptr));
+				
 			}
 		}
+		//processAINode(scenePtr->mRootNode, scenePtr, scene->getRootNodePtr());
 
 		importer.SetProgressHandler(nullptr); // important! Importer's destructor calls delete on the progress handler pointer!
 		importer.FreeScene();

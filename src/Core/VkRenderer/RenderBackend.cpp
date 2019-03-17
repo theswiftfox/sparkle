@@ -168,9 +168,13 @@ void RenderBackend::draw(double deltaT)
 						glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]), // near
 						glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]) // far
 					};
-					auto fc = [&frustum](glm::vec4 pos) {
-						for (const auto& plane : frustum) {
-							if (glm::dot(pos, plane) + 1.0f < 0.0) {
+					auto fc = [&frustum](Geometry::BoundingSphere sphere, glm::mat4 model) {
+						auto pos = model * glm::vec4(sphere.center, 1.0f);
+						float scale = glm::length(glm::vec3(model[0][0], model[1][0], model[2][0]));
+						float rad = scale * sphere.radius;
+						for (const auto& plane : frustum)
+						{
+							if (glm::dot(pos, plane) + rad < 0.0) {
 								return false;
 							}
 						}
@@ -182,7 +186,8 @@ void RenderBackend::draw(double deltaT)
 							continue;
 
 						auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
-						auto pos = mesh->modelMat()[3];
+						auto bound = mesh->getBounds();
+						auto model = mesh->accumModel();
 
 						VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
 						vkCmdBindVertexBuffers(singleFrameCmdBuffers[imageIndex], 0, 1, vtxBuffers, offsets);
@@ -193,7 +198,7 @@ void RenderBackend::draw(double deltaT)
 						sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
 						sets.push_back(mesh->getMaterial()->getDescriptorSet());
 
-						if (fc(pos)) {
+						if (fc(bound, model)) {
 							auto pc = mesh->getMaterial()->getUniforms();
 							vkCmdPushConstants(singleFrameCmdBuffers[imageIndex], pGraphicsPipeline->getPipelineLayoutPtr(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
 							vkCmdBindDescriptorSets(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
@@ -225,7 +230,7 @@ void RenderBackend::draw(double deltaT)
 				computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
 
 				VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr), "Error occured during compute pass");
-				
+
 				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
 				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 				renderInfo.waitSemaphoreCount = 2;
@@ -342,12 +347,12 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 
 		// frustum
 		auto vp = ubo.projection * ubo.view;
-		compute.ubo.frustumPlanes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]); // left
-		compute.ubo.frustumPlanes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]); // right
-		compute.ubo.frustumPlanes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]); // bottom
-		compute.ubo.frustumPlanes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]); // top
-		compute.ubo.frustumPlanes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]); // near
-		compute.ubo.frustumPlanes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]); // far
+		compute.ubo.frustumPlanes[0] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0])); // left
+		compute.ubo.frustumPlanes[1] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0])); // right
+		compute.ubo.frustumPlanes[2] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1])); // bottom
+		compute.ubo.frustumPlanes[3] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1])); // top
+		compute.ubo.frustumPlanes[4] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2])); // near
+		compute.ubo.frustumPlanes[5] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2])); // far
 		compute.ubo.cameraPos = fragmentUBO.cameraPos;
 
 		compute.updateUBO(compute.ubo);
@@ -575,7 +580,7 @@ void RenderBackend::recreateSwapChain()
 	vkDeviceWaitIdle(pVulkanDevice); // do not destroy old swapchain while in use!
 	cleanupSwapChain();
 
-	glfwGetWindowSize(pWindow, &viewportWidth, &viewportWidth);
+	glfwGetWindowSize(pWindow, &viewportWidth, &viewportHeight);
 
 	createSwapChain();
 	createImageViews();
@@ -703,6 +708,7 @@ void RenderBackend::recordComputeCmdBuffers()
 			const auto mesh = std::dynamic_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
 			ComputePipeline::MeshData data = {};
 			data.model = mesh->accumModel();
+			data.boundingSphere = mesh->getBounds();
 			data.indexCount = mesh->size();
 			data.firstIndex = mesh->bufferOffset.indexOffs;
 			meshData.push_back(data);
