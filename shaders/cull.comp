@@ -32,6 +32,7 @@ layout(binding=1, std430) writeonly buffer IndirectDraws {
 
 layout(binding=2) uniform UBO {
 	vec4 frustumCube[6];
+	vec4 cameraPosition;
 } ubo;
 
 layout(binding=3) buffer OutBuffer {
@@ -61,7 +62,9 @@ void main() {
 	mat4 iModel = Meshes[idx].model;
 	vec4 pos = iModel[3];
 
-	if (checkFrustum(pos, 1.0f)) {
+	// todo: replace the radius check with bounding box check!
+	float rad = 4.0f / (1.0f + log(length(pos - ubo.cameraPosition)));
+	if (checkFrustum(pos, rad)) {
 		indirectDraws[idx].instanceCount = 1;
 		indirectDraws[idx].firstIndex = Meshes[idx].firstIndex;
 		indirectDraws[idx].indexCount = Meshes[idx].indexCount;
