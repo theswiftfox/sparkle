@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 if(POLICY CMP0076)
     cmake_policy(SET CMP0076 NEW)
 endif()
@@ -75,13 +75,12 @@ add_subdirectory(src/Core)
 add_subdirectory(src/Import)
 
 set(SHADERS
-	shaders/scene.frag
-	shaders/scene.vert
 	shaders/ui.frag
 	shaders/ui.vert
 	shaders/deferred.vert.hlsl
 	shaders/deferred.frag.hlsl
-	shaders/cull.comp.hlsl
+	shaders/MRT.vert
+	shaders/MRT.frag
 	shaders/cull.comp
 )
 

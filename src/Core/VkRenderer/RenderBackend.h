@@ -86,7 +86,7 @@ private:
 	std::shared_ptr<Geometry::Scene> pScene = nullptr;
 	std::shared_ptr<GUI> pUi = nullptr;
 
-	Shaders::ShaderProgram::FragmentShaderUniforms fragmentUBO;
+	Shaders::DeferredShaderProgram::FragmentShaderUniforms fragmentUBO;
 
 	GLFWwindow* pWindow;
 	int viewportWidth, viewportHeight;
@@ -107,7 +107,7 @@ private:
 	VkFormat depthFormat;
 	VkExtent2D swapChainExtent;
 	VkCommandPool pCommandPool;
-	std::shared_ptr<GraphicsPipeline> pGraphicsPipeline;
+	std::shared_ptr<DeferredDraw> pGraphicsPipeline;
 
 	ComputePipeline compute;
 	bool computeEnabled = true;
@@ -119,6 +119,14 @@ private:
 	// Buffer and associated memory for Geometry used in the main draw pass
 	vkExt::Buffer pDrawBuffer;
 	vkExt::SharedMemory* ppDrawMemory;
+	vkExt::Buffer screenQuadBuffer;
+	vkExt::SharedMemory* screenQuadMemory = nullptr;
+
+	struct ScreenQuad {
+		size_t indexOffset;
+		size_t size;
+	} screenQuad;
+
 	// some attributes used for the shared vertex and index buffer memory
 	VkDeviceSize maxVertexSize = INITIAL_VERTEX_COUNT * sizeof(Geometry::Vertex);
 	VkDeviceSize lastVertexOffset;
@@ -127,18 +135,19 @@ private:
 	VkDeviceSize lastIndexOffset;
 
 	vkExt::Buffer pInstanceBuffer;
-	vkExt::SharedMemory* ppInstanceMemory;
+	vkExt::SharedMemory* ppInstanceMemory = nullptr;
 
 	VkDeviceSize indirectCommandsSize;
 	vkExt::Buffer pIndirectCommandsBuffer;
-	vkExt::SharedMemory* ppIndirectCommandMemory;
+	vkExt::SharedMemory* ppIndirectCommandMemory = nullptr;
 
 	vkExt::Buffer pIndirectDrawCountBuffer;
-	vkExt::SharedMemory* ppIndirectDrawCountMemory;
+	vkExt::SharedMemory* ppIndirectDrawCountMemory = nullptr;
 
 	// Synchronization objects
 	std::vector<VkSemaphore> semImageAvailable;
 	std::vector<VkSemaphore> semOffScreenFinished;
+	std::vector<VkSemaphore> semMRTFinished;
 	std::vector<VkSemaphore> semRenderFinished;
 	std::vector<VkSemaphore> semUiFinished;
 	std::vector<VkFence> inFlightFences;
@@ -147,7 +156,8 @@ private:
 
 	VkCommandBuffer offScreenCmdBuffer;
 
-	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> mrtCommandBuffers;
+	std::vector<VkCommandBuffer> deferredCommandBuffers;
 	std::vector<VkCommandBuffer> singleFrameCmdBuffers;
 	std::vector<VkCommandBuffer> offScreenBuffers;
 	std::vector<VkCommandBuffer> uiCommandBuffers;
@@ -222,6 +232,7 @@ private:
 	void recreateDrawCmdBuffers();
 	void recreateAllCmdBuffers();
 	void updateDrawCommand();
+	void createScreenQuad();
 
 	void initLight(Lights::Light* light, glm::vec3 pos, glm::vec3 col, float radius, Lights::LType type = Lights::LTypeFlags::SPARKLE_LIGHT_TYPE_POINT);
 

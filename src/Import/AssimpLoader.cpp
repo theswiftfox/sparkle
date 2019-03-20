@@ -229,12 +229,7 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 			textures.insert(textures.end(), rough.begin(), rough.end());
 			textures.insert(textures.end(), metal.begin(), metal.end());
 
-			float specular;
-			if (aiGetMaterialFloat(aiMat, AI_MATKEY_REFLECTIVITY, &specular) != AI_SUCCESS) {
-				specular = 0.5f;
-			}
-
-			material = std::make_shared<Material>(textures, specular);
+			material = std::make_shared<Material>(textures);
 		}
 		if (material)
 			materialCache.push_back(material);

@@ -1,73 +1,163 @@
-// Deferred rendering pixel shader
+// PBR based pixel shader
 
 struct PS_INPUT {
-	[[vk::location(0)]] float3 posWorld : POSITION_WORLD;
-	[[vk::location(1)]] float3 normal : NORMAL;
-	[[vk::location(2)]] float3 tangent : TANGENT;
-	[[vk::location(3)]] float3 bitangent : BITANGENT;
-	[[vk::location(4)]] float2 uv : UV;
+	[[vk::location(0)]] float2 uv : UV;
 };
 
 struct PS_OUTPUT {
-	[[vk::location(0)]] float4 position;
-	[[vk::location(1)]] float4 normal;
-	[[vk::location(2)]] uint4 albedoMR;
+	[[vk::location(0)]] float4 color : SV_Target;
 };
 
-[[vk::binding(0, 1)]] Texture2D albedoTexture;
-[[vk::binding(1, 1)]] Texture2D normalTexture;
-[[vk::binding(2, 1)]] Texture2D roughnessTexture;
-[[vk::binding(3, 1)]] Texture2D metallicTexture;
+#define SPARKLE_SHADER_LIMIT_LIGHTS 1000
 
-[[vk::constant_id(0)]] const float NEAR_PLANE = 0.1f;
-[[vk::constant_id(1)]] const float FAR_PLANE = 64.0f;
-[[vk::constant_id(2)]] const bool ENABLE_DISCARD = false;
+#define SPARKLE_MAT_NORMAL_MAP 0x010
+#define SPARKLE_MAT_PBR 0x100
 
-SamplerState textureSampler {
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = Wrap;
-	AddressV = Wrap;
+[[vk::binding(1, 0)]] Texture2D positionTex;
+[[vk::binding(2, 0)]] Texture2D normalsTex;
+[[vk::binding(3, 0)]] Texture2D albedoMRTex;
+
+struct Light {
+	float4 position;
+	float4 color;
+	float radius;
 };
 
-float calcLinearDepth(float zval) {
-	float z = zval * 2.0 - 1.0;
-	return (2.0 * NEAR_PLANE * FAR_PLANE) / (FAR_PLANE + NEAR_PLANE - z * (FAR_PLANE - NEAR_PLANE));
+[[vk::binding(0, 0)]] cbuffer ubo
+{
+	float4 cameraPos;
+	uint numberOfLights;
+	float exposure;
+	float gamma;
+	Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
+};
+
+const float PI = 3.14159265359;
+
+float3 blinnPhong(float3 fragPos, float3 N, float3 V, float3 diffColor, float3 specColor, uint lightnr)
+{
+	Light l = lights[lightnr];
+	float3 lightPos = l.position.xyz;
+
+	float d = length(lightPos - fragPos);
+	float att = l.radius / ((d * d) + 1);
+	float3 rad = l.color.rgb * att;
+
+	// diffuse light
+	float3 L = normalize(lightPos - fragPos);
+	float diff = max(dot(L, N), 0.0);
+	float3 diffuse = diff * diffColor * att;
+
+	// specular
+	float3 R = reflect(-L, N);
+	float3 halfDir = normalize(L + V);
+	float spec = pow(max(dot(N, halfDir), 0.0), 16.0f);
+
+	float3 specular = spec * specColor * att;
+
+	return (diffuse + specular);
 }
 
-[[vk::location(0)]]
-PS_OUTPUT main(PS_INPUT input, in float4 pos : SV_Position) {
+// Normal Distribution function --------------------------------------
+float NDF(float dotNH, float roughness)
+{
+	float alpha = roughness * roughness;
+	float alpha2 = alpha * alpha;
+	float denom = dotNH * dotNH * (alpha2 - 1.0) + 1.0;
+	return (alpha2) / (PI * denom * denom);
+}
+
+// Geometric Distribution function --------------------------------------
+float SchlickSmithGGX(float dotNL, float dotNV, float roughness)
+{
+	float r = (roughness + 1.0);
+	float k = (r * r) / 8.0;
+	float GL = dotNL / (dotNL * (1.0 - k) + k);
+	float GV = dotNV / (dotNV * (1.0 - k) + k);
+	return GL * GV;
+}
+
+// Fresnel function ----------------------------------------------------
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+	float3 F = F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+	return F;
+}
+
+// Specular BRDF composition --------------------------------------------
+float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light light, float metallic, float roughness)
+{
+	// Precalculate vectors and dot products
+	float3 L = light.position.xyz - position;
+	float distance = length(L);
+	float attenuation = 1.0 / (distance * distance);
+	float3 radiance = light.color.rgb * attenuation;
+
+	L = normalize(L);
+	float3 H = normalize(V + L);
+
+	float dotNV = clamp(dot(N, V), 0.0, 1.0);
+	float dotNL = clamp(dot(N, L), 0.0, 1.0);
+	float dotNH = clamp(dot(N, H), 0.0, 1.0);
+	float dotHV = clamp(dot(L, H), 0.0, 1.0);
+
+	float3 color = float3(0.0);
+
+	if (dotNL > 0.0 && dotNV > 0.0) {
+		// D = Normal distribution
+		float D = NDF(dotNH, roughness);
+		// G = Geometric shadowing term (Microfacets shadowing)
+		float G = SchlickSmithGGX(dotNL, dotNV, roughness);
+		// F = Fresnel factor
+		float3 F = FresnelSchlick(dotNV, F0);
+
+		float3 nom = D * G * F;
+		float denom = 4.0 * dotNV * dotNL;
+		float3 spec = nom / denom;
+
+		// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
+		// => diffuse component (kD) = 1.0 - kS.
+		float3 kD = (float3(1.0) - F);
+		// only non metals have diffuse lightning -> linear blend with inverse metalness
+		kD *= 1.0 - metallic;
+		color += (kD * albedo / PI + spec) * radiance * dotNL;
+	}
+
+	return color;
+}
+
+// ----------------------------------------------------------------------------
+
+PS_OUTPUT main(in PS_INPUT input)
+{
 	PS_OUTPUT output;
-	output.position = float4(input.posWorld, calcLinearDepth(pos.z));
 
-	float4 albedo = albedoTexture.Sample(textureSampler, input.uv);
-	float4 normal = normalTexture.Sample(textureSampler, input.uv);
-	float roughness = roughnessTexture.Sample(textureSampler, input.uv).r;
-	float metallic = metallicTexture.Sample(textureSampler, input.uv).r;
+	SamplerState textureSampler
+	{
+		Filter = MIN_MAG_MIP_LINEAR;
+		AddressU = ClampToEdge;
+		AddressV = ClampToEdge;
+	};
+	// unpack
+	float4 pos = positionTex.Sample(textureSampler, input.uv);
+	float4 normal = normalsTex.Sample(textureSampler, input.uv);
 
-	if (ENABLE_DISCARD == false) {
-		float3 N = normalize(input.normal);
-		float3 B = normalize(input.bitangent);
-		float3 T = normalize(input.tangent);
-		float3x3 TBN = float3x3(T, B, N);
-		float3 n = normal.xyz * 2.0 - float3(1.0);
-		n = mul(normalize(n), TBN);
-		output.normal = float4(n * 0.5 + 0.5, 0.0);
-	}
-	else {
-		output.normal = float4(input.normal * 0.5 + 0.5, 0.0);
-		if (albedo.a < 0.5) {
-			discard;
-		}
-	}
+	uint4 albedoMR = albedoMRTex.Sample(textureSampler, input.uv);
+	float g = f16tof32(albedoMR.r);
+	float r = f16tof32(albedoMR.r >> 8);
+	float a = f16tof32(albedoMR.g);
+	float b = f16tof32(albedoMR.g >> 8);
 
-	// packing
-	uint4 chalf = f32tof16(albedo);
-	uint rhalf = f32tof16(roughness);
-	uint mhalf = f32tof16(metallic);
-	output.albedoMR.r = (chalf.r << 8) | chalf.g;
-	output.albedoMR.g = (chalf.b << 8) | chalf.a;
-	output.albedoMR.b = (mhalf << 8) | rhalf;
-	output.albedoMR.a = 0;
-
+	float4 color = float4(r, g, b, a);
+	output.color = color;
 	return output;
+
+	//if (albedoMR.a == 0) { // pbr
+	//	float roughness = f16tof32(albedoMR.b);
+	//	float metallic = f16tof32(albedoMR.b >> 8);
+
+	//} else { // blinn phong fallback
+	//}
+
+	//return output;
 }

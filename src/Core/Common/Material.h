@@ -32,11 +32,10 @@ public:
     typedef uint32_t MaterialFeatures;
     struct MaterialUniforms {
         MaterialFeatures features;
-        float specular;
     };
 
-    Material(std::vector<std::shared_ptr<Texture>> textures, float specular);
-    Material(std::vector<std::shared_ptr<Texture>> textures, float specular, float roughness, float metallic);
+    Material(std::vector<std::shared_ptr<Texture>> textures);
+    Material(std::vector<std::shared_ptr<Texture>> textures, float roughness, float metallic);
 
     MaterialUniforms getUniforms() const;
 

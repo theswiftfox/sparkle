@@ -4,10 +4,9 @@
 
 #include "Util.h"
 
-Sparkle::Material::Material(std::vector<std::shared_ptr<Sparkle::Texture>> textures, float specular)
+Sparkle::Material::Material(std::vector<std::shared_ptr<Sparkle::Texture>> textures)
 {
     uniforms.features = 0x0;
-    uniforms.specular = specular;
     initTextureMaterial(textures);
 }
 

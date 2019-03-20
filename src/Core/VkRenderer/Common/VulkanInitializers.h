@@ -151,6 +151,12 @@ namespace vk {
 			info.pNext = nullptr;
 			return info;
 		}
+		inline VkSamplerCreateInfo samplerCreateInfo()
+		{
+			VkSamplerCreateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+			return info;
+		}
 	} // namespace init
 } // namespace vk
 } // namespace Sparkle
