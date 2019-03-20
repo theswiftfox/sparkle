@@ -40,6 +40,7 @@ void RenderBackend::setupVulkan()
 	createPipeline();
 	createComputePipeline();
 	setupGui();
+	createScreenQuad();
 	createCommandBuffers();
 	recordComputeCmdBuffers();
 	createSyncObjects();
@@ -104,122 +105,123 @@ void RenderBackend::draw(double deltaT)
 		renderInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		renderInfo.commandBufferCount = 1;
 
-		VkSemaphore signalSemaphores[] = { semRenderFinished[frameCounter] };
+		VkSemaphore signalSemaphores[] = { semMRTFinished[frameCounter] };
 		renderInfo.signalSemaphoreCount = 1;
 		renderInfo.pSignalSemaphores = signalSemaphores;
 
-		if (cullCPU) {
-			drawCount = 0;
-			VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
-			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-			renderInfo.waitSemaphoreCount = 1;
-			renderInfo.pWaitSemaphores = waitSemaphores;
-			renderInfo.pWaitDstStageMask = waitStages;
+		//if (cullCPU) { // TODO
+		//	drawCount = 0;
+		//	VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
+		//	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		//	renderInfo.waitSemaphoreCount = 1;
+		//	renderInfo.pWaitSemaphores = waitSemaphores;
+		//	renderInfo.pWaitDstStageMask = waitStages;
 
-			if (singleFrameCmdBuffers[imageIndex]) {
-				vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &singleFrameCmdBuffers[imageIndex]);
-			}
-			singleFrameCmdBuffers[imageIndex] = beginOneTimeCommand();
+		//	if (singleFrameCmdBuffers[imageIndex]) {
+		//		vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &singleFrameCmdBuffers[imageIndex]);
+		//	}
+		//	singleFrameCmdBuffers[imageIndex] = beginOneTimeCommand();
 
-			VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
+		//	VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
 
-			VkImageSubresourceRange imageRange = {};
-			imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			imageRange.levelCount = 1;
-			imageRange.layerCount = 1;
-			VkImageSubresourceRange depthRange = {};
-			depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-			depthRange.levelCount = 1;
-			depthRange.layerCount = 1;
+		//	VkImageSubresourceRange imageRange = {};
+		//	imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//	imageRange.levelCount = 1;
+		//	imageRange.layerCount = 1;
+		//	VkImageSubresourceRange depthRange = {};
+		//	depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		//	depthRange.levelCount = 1;
+		//	depthRange.layerCount = 1;
 
-			transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
-			vkCmdClearColorImage(singleFrameCmdBuffers[imageIndex], swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor, 1, &imageRange);
-			transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
-			transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
-			vkCmdClearDepthStencilImage(singleFrameCmdBuffers[imageIndex], depthImages[imageIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cDepthColor, 1, &depthRange);
-			transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+		//	transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+		//	vkCmdClearColorImage(singleFrameCmdBuffers[imageIndex], swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor, 1, &imageRange);
+		//	transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+		//	transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
+		//	vkCmdClearDepthStencilImage(singleFrameCmdBuffers[imageIndex], depthImages[imageIndex].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cDepthColor, 1, &depthRange);
+		//	transitionImageLayout(depthImages[imageIndex].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, singleFrameCmdBuffers[imageIndex]);
 
-			VkRenderPassBeginInfo renderPassInfo {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = pGraphicsPipeline->getRenderPassPtr();
-			renderPassInfo.framebuffer = pGraphicsPipeline->getFramebufferPtrs()[imageIndex];
-			renderPassInfo.clearValueCount = 0;
-			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = swapChainExtent;
+		//	VkRenderPassBeginInfo renderPassInfo {};
+		//	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		//	renderPassInfo.renderPass = pGraphicsPipeline->getMRTRenderPassPtr();
+		//	renderPassInfo.framebuffer = pGraphicsPipeline->getMRTFramebufferPtrs()[imageIndex];
+		//	renderPassInfo.clearValueCount = 0;
+		//	renderPassInfo.renderArea.offset = { 0, 0 };
+		//	renderPassInfo.renderArea.extent = swapChainExtent;
 
-			vkCmdBeginRenderPass(singleFrameCmdBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		//	vkCmdBeginRenderPass(singleFrameCmdBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-			vkCmdBindPipeline(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getVkGraphicsPipelinePtr());
-			if (pDrawBuffer.buffer) {
-				VkBuffer vtxBuffers[] = { pDrawBuffer.buffer };
-				vkCmdBindIndexBuffer(singleFrameCmdBuffers[imageIndex], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
+		//	vkCmdBindPipeline(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getVkGraphicsPipelinePtr());
+		//	if (pDrawBuffer.buffer) {
+		//		VkBuffer vtxBuffers[] = { pDrawBuffer.buffer };
+		//		vkCmdBindIndexBuffer(singleFrameCmdBuffers[imageIndex], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
 
-				const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
-				const auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
+		//		const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
+		//		const auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
 
-				uint32_t j = 0;
-				if (pCamera) {
-					auto vp = pCamera->getViewProjectionMatrix();
-					auto frustum = {
-						glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]), // left
-						glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]), // right
-						glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]), // bottom
-						glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]), // top
-						glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]), // near
-						glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]) // far
-					};
-					auto fc = [&frustum](Geometry::BoundingSphere sphere, glm::mat4 model) {
-						auto pos = model * glm::vec4(sphere.center, 1.0f);
-						float scale = glm::length(glm::vec3(model[0][0], model[1][0], model[2][0]));
-						float rad = scale * sphere.radius;
-						if (scale < 1.0)
-							rad += 10.0;
+		//		uint32_t j = 0;
+		//		if (pCamera) {
+		//			auto vp = pCamera->getViewProjectionMatrix();
+		//			auto frustum = {
+		//				glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]), // left
+		//				glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]), // right
+		//				glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]), // bottom
+		//				glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]), // top
+		//				glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]), // near
+		//				glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]) // far
+		//			};
+		//			auto fc = [&frustum](Geometry::BoundingSphere sphere, glm::mat4 model) {
+		//				auto pos = model * glm::vec4(sphere.center, 1.0f);
+		//				float scale = glm::length(glm::vec3(model[0][0], model[1][0], model[2][0]));
+		//				float rad = scale * sphere.radius;
+		//				if (scale < 1.0)
+		//					rad += 10.0;
 
-						for (const auto& plane : frustum)
-						{
-							if (glm::dot(pos, plane) + rad < 0.0) {
-								return false;
-							}
-						}
-						return true;
-					};
+		//				for (const auto& plane : frustum)
+		//				{
+		//					if (glm::dot(pos, plane) + rad < 0.0) {
+		//						return false;
+		//					}
+		//				}
+		//				return true;
+		//			};
 
-					for (auto& node : meshes) {
-						if (!node->drawable())
-							continue;
+		//			for (auto& node : meshes) {
+		//				if (!node->drawable())
+		//					continue;
 
-						auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
-						auto bound = mesh->getBounds();
-						auto model = mesh->accumModel();
+		//				auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
+		//				auto bound = mesh->getBounds();
+		//				auto model = mesh->accumModel();
 
-						VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
-						vkCmdBindVertexBuffers(singleFrameCmdBuffers[imageIndex], 0, 1, vtxBuffers, offsets);
+		//				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
+		//				vkCmdBindVertexBuffers(singleFrameCmdBuffers[imageIndex], 0, 1, vtxBuffers, offsets);
 
-						std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
+		//				std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
 
-						std::vector<VkDescriptorSet> sets;
-						sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
-						sets.push_back(mesh->getMaterial()->getDescriptorSet());
+		//				std::vector<VkDescriptorSet> sets;
+		//				sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
+		//				sets.push_back(mesh->getMaterial()->getDescriptorSet());
 
-						if (fc(bound, model)) {
-							auto pc = mesh->getMaterial()->getUniforms();
-							vkCmdPushConstants(singleFrameCmdBuffers[imageIndex], pGraphicsPipeline->getPipelineLayoutPtr(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
-							vkCmdBindDescriptorSets(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
-							vkCmdDrawIndexed(singleFrameCmdBuffers[imageIndex], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
-							drawCount++;
-						}
-						++j;
-					}
-				}
-			}
-			vkCmdEndRenderPass(singleFrameCmdBuffers[imageIndex]);
+		//				if (fc(bound, model)) {
+		//					auto pc = mesh->getMaterial()->getUniforms();
+		//					vkCmdPushConstants(singleFrameCmdBuffers[imageIndex], pGraphicsPipeline->getPipelineLayoutPtr(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
+		//					vkCmdBindDescriptorSets(singleFrameCmdBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+		//					vkCmdDrawIndexed(singleFrameCmdBuffers[imageIndex], static_cast<uint32_t>(mesh->size()), 1, static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
+		//					drawCount++;
+		//				}
+		//				++j;
+		//			}
+		//		}
+		//	}
+		//	vkCmdEndRenderPass(singleFrameCmdBuffers[imageIndex]);
 
-			VK_THROW_ON_ERROR(vkEndCommandBuffer(singleFrameCmdBuffers[imageIndex]), "End command buffer recording failed!");
+		//	VK_THROW_ON_ERROR(vkEndCommandBuffer(singleFrameCmdBuffers[imageIndex]), "End command buffer recording failed!");
 
-			renderInfo.pCommandBuffers = &singleFrameCmdBuffers[imageIndex];
-			VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr), "Error occured during rendering pass");
-		} else {
-			renderInfo.pCommandBuffers = &commandBuffers[imageIndex];
+		//	renderInfo.pCommandBuffers = &singleFrameCmdBuffers[imageIndex];
+		//	VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr), "Error occured during rendering pass");
+		//} else {
+		{
+			renderInfo.pCommandBuffers = &mrtCommandBuffers[imageIndex];
 
 			if (computeEnabled) {
 				vkWaitForFences(pVulkanDevice, 1, &compute.fences[imageIndex], VK_TRUE, uint64_t(5e+9));
@@ -250,13 +252,32 @@ void RenderBackend::draw(double deltaT)
 				renderInfo.pWaitDstStageMask = waitStages;
 
 				VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, nullptr),
-				    "Error occured during rendering pass");
+				    "Error occured during MRT rendering pass");
 
-				drawCount = pScene->getRenderableScene().size();
+				drawCount = pScene ? pScene->getRenderableScene().size() : 0;
 			}
 		}
 	}
+	{
+		VkSubmitInfo deferredInfo = {};
+		deferredInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
+		VkSemaphore waitSemaphores[] = { semMRTFinished[frameCounter] };
+		VkSemaphore signalSemaphores[] = { semRenderFinished[frameCounter] };
+
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+		deferredInfo.waitSemaphoreCount = 1;
+		deferredInfo.pWaitSemaphores = waitSemaphores;
+		deferredInfo.signalSemaphoreCount = 1;
+		deferredInfo.pSignalSemaphores = signalSemaphores;
+		deferredInfo.pWaitDstStageMask = waitStages;
+		deferredInfo.commandBufferCount = 1;
+		deferredInfo.pCommandBuffers = &deferredCommandBuffers[imageIndex];
+
+		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &deferredInfo, nullptr),
+		    "Error occured during Deferred rendering pass");
+	}
 	{
 		VkSubmitInfo uiInfo {};
 		uiInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -272,7 +293,7 @@ void RenderBackend::draw(double deltaT)
 			vkFreeCommandBuffers(pVulkanDevice, pCommandPool, 1, &uiCommandBuffers[imageIndex]);
 		}
 		uiCommandBuffers[imageIndex] = beginOneTimeCommand();
-		pUi->drawFrame(uiCommandBuffers[imageIndex], pGraphicsPipeline->getFramebufferPtrs()[imageIndex]);
+		pUi->drawFrame(uiCommandBuffers[imageIndex], pGraphicsPipeline->getDeferredFramebufferPtrs()[imageIndex]);
 		transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat,
 		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		    uiCommandBuffers[imageIndex]);
@@ -327,24 +348,24 @@ void RenderBackend::updateUiData(GUI::FrameData uiData)
 
 void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 {
-	const auto shaderProg = pGraphicsPipeline->getShaderProgramPtr();
-
+	const auto deferredShaderProg = pGraphicsPipeline->getDeferredShaderProgramPtr();
 	fragmentUBO.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
 	fragmentUBO.gamma = pUi->getGamma();
 	fragmentUBO.exposure = pUi->getExposure();
-	shaderProg->updateFragmentShaderUniforms(fragmentUBO);
+	deferredShaderProg->updateFragmentShaderUniforms(fragmentUBO);
 
 	if (updatedCam || updateGeometry) {
+		const auto mrtShaderProg = pGraphicsPipeline->getMRTShaderProgramPtr();
 
-		Shaders::ShaderProgram::UniformBufferObject ubo = {};
+		Shaders::MRTShaderProgram::UniformBufferObject ubo = {};
 
 		ubo.view = pCamera->getView();
 		ubo.projection = pCamera->getProjection();
 
 		vkDeviceWaitIdle(pVulkanDevice);
-		shaderProg->updateUniformBufferObject(ubo);
+		mrtShaderProg->updateUniformBufferObject(ubo);
 		if (updateGeometry && pScene) {
-			shaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+			mrtShaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 			updateGeometry = false;
 		}
 
@@ -364,7 +385,8 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 
 void RenderBackend::cleanupSwapChain()
 {
-	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(mrtCommandBuffers.size()), mrtCommandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(deferredCommandBuffers.size()), deferredCommandBuffers.data());
 	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(singleFrameCmdBuffers.size()), singleFrameCmdBuffers.data());
 
 	pUi->cleanup();
@@ -406,6 +428,7 @@ void RenderBackend::cleanupSwapChain()
 	vkDestroySwapchainKHR(pVulkanDevice, pSwapChain, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		vkDestroySemaphore(pVulkanDevice, semMRTFinished[i], nullptr);
 		vkDestroySemaphore(pVulkanDevice, semRenderFinished[i], nullptr);
 		vkDestroySemaphore(pVulkanDevice, semImageAvailable[i], nullptr);
 		vkDestroySemaphore(pVulkanDevice, semUiFinished[i], nullptr);
@@ -425,6 +448,9 @@ void RenderBackend::cleanup()
 	    uiCommandBuffers.data());
 
 	pDrawBuffer.destroy(true); // cleanup vertex buffer and memory
+	screenQuadBuffer.destroy(true);
+	delete (screenQuadMemory);
+
 	if (pIndirectCommandsBuffer.buffer)
 		pIndirectCommandsBuffer.destroy(true);
 	if (pIndirectDrawCountBuffer.buffer)
@@ -686,14 +712,14 @@ void RenderBackend::createPipeline()
 		0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f
 	};
 	std::cout << __FUNCTION__ << "-> main rendering pipeline" << std::endl;
-	pGraphicsPipeline = std::make_unique<GraphicsPipeline>(viewport);
+	pGraphicsPipeline = std::make_unique<DeferredDraw>(viewport);
 	auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(meshes);
+	pGraphicsPipeline->getMRTShaderProgramPtr()->updateDynamicUniformBufferObject(meshes);
 }
 
 void RenderBackend::createComputePipeline()
 {
-	compute.initialize(deviceQueueFamilies.computeFamily, pGraphicsPipeline->getFramebufferPtrs().size());
+	compute.initialize(deviceQueueFamilies.computeFamily, pGraphicsPipeline->getDeferredFramebufferPtrs().size());
 }
 
 void RenderBackend::recordComputeCmdBuffers()
@@ -842,8 +868,10 @@ void RenderBackend::createDepthResources()
 
 void RenderBackend::destroyCommandBuffers()
 {
-	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(commandBuffers.size()),
-	    commandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(mrtCommandBuffers.size()),
+	    mrtCommandBuffers.data());
+	vkFreeCommandBuffers(pVulkanDevice, pCommandPool, static_cast<uint32_t>(deferredCommandBuffers.size()),
+	    deferredCommandBuffers.data());
 }
 
 void RenderBackend::updateScenePtr(std::shared_ptr<Geometry::Scene> scene)
@@ -858,7 +886,7 @@ void RenderBackend::updateScenePtr(std::shared_ptr<Geometry::Scene> scene)
 void RenderBackend::updateDrawCommand()
 {
 	assert(pScene);
-	pGraphicsPipeline->getShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
+	pGraphicsPipeline->getMRTShaderProgramPtr()->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 	recreateDrawCmdBuffers();
 }
 
@@ -873,83 +901,129 @@ void RenderBackend::recreateDrawCmdBuffers()
 		recordComputeCmdBuffers();
 	}
 
-	for (auto& cmdBuff : commandBuffers) {
+	for (auto& cmdBuff : mrtCommandBuffers) {
+		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+	}
+	for (auto& cmdBuff : deferredCommandBuffers) {
 		vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 	}
 	recordDrawCmdBuffers();
 }
 
-void RenderBackend::recreateAllCmdBuffers() { recreateDrawCmdBuffers(); }
+void RenderBackend::createScreenQuad()
+{
+	std::vector<Geometry::Vertex> vertices;
+	vertices.push_back({ glm::vec3(0.0f, 0.0f, 0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec2(0.0f) });
+	vertices.push_back({ glm::vec3(1.0f, 0.0f, 0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec2(0.0f) });
+	vertices.push_back({ glm::vec3(0.0f, 1.0f, 0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec2(0.0f) });
+	vertices.push_back({ glm::vec3(1.0f, 1.0f, 0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec3(0.0f),
+	    glm::vec2(0.0f) });
+	uint32_t indices[] = { 2, 1, 0, 1, 2, 3 };
+
+	size_t indexOffset = sizeof(Geometry::Vertex) * vertices.size();
+	VkDeviceSize bufferSize = indexOffset + sizeof(uint32_t) * 6;
+
+	if (!screenQuadMemory) {
+		screenQuadMemory = new vkExt::SharedMemory();
+	}
+
+	auto stagingMem = new vkExt::SharedMemory();
+	vkExt::Buffer stagingBuffer;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMem);
+
+	stagingBuffer.map();
+	stagingBuffer.copyTo(vertices.data(), indexOffset);
+	stagingBuffer.copyTo(indices, 6 * sizeof(uint32_t), indexOffset);
+	stagingBuffer.unmap();
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadBuffer, screenQuadMemory);
+	screenQuadBuffer.copyToBuffer(pCommandPool, pGraphicsQueue, stagingBuffer, bufferSize);
+
+	stagingBuffer.destroy(true);
+	delete (stagingMem);
+
+	screenQuad.indexOffset = indexOffset;
+	screenQuad.size = 6;
+}
+
+void RenderBackend::recreateAllCmdBuffers()
+{
+	recreateDrawCmdBuffers();
+}
 
 void RenderBackend::reloadShaders() { recreateSwapChain(); }
 
 void RenderBackend::createCommandBuffers()
 {
-	commandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
-	uiCommandBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
-	singleFrameCmdBuffers.resize(pGraphicsPipeline->getFramebufferPtrs().size());
+	const auto size = pGraphicsPipeline->getDeferredFramebufferPtrs().size();
+	mrtCommandBuffers.resize(size);
+	deferredCommandBuffers.resize(size);
+	uiCommandBuffers.resize(size);
+	singleFrameCmdBuffers.resize(size);
 
 	VkCommandBufferAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, pCommandPool,
-		VK_COMMAND_BUFFER_LEVEL_PRIMARY, (uint32_t)commandBuffers.size() };
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY, (uint32_t)mrtCommandBuffers.size() };
 
-	VK_THROW_ON_ERROR(vkAllocateCommandBuffers(pVulkanDevice, &allocInfo, commandBuffers.data()),
+	VK_THROW_ON_ERROR(vkAllocateCommandBuffers(pVulkanDevice, &allocInfo, mrtCommandBuffers.data()),
 	    "CommandBuffer allocation failed!");
-
+	VK_THROW_ON_ERROR(vkAllocateCommandBuffers(pVulkanDevice, &allocInfo, deferredCommandBuffers.data()),
+	    "CommandBuffer allocation failed!");
 	recordDrawCmdBuffers();
 }
 
 // Record Command Buffers for main geometry
 void RenderBackend::recordDrawCmdBuffers()
 {
-	auto swapChainFramebuffersRef = pGraphicsPipeline->getFramebufferPtrs();
+	auto mrtFramebuffersRef = pGraphicsPipeline->getMRTFramebufferPtrs();
+	auto swapChainFramebuffersRef = pGraphicsPipeline->getDeferredFramebufferPtrs();
 
-	for (size_t i = 0; i < commandBuffers.size(); ++i) {
+	VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
+
+	for (size_t i = 0; i < mrtCommandBuffers.size(); ++i) {
 		VkCommandBufferBeginInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr,
 			VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT, nullptr };
 
-		VK_THROW_ON_ERROR(vkBeginCommandBuffer(commandBuffers[i], &info), "Begin command buffer recording failed!");
+		VK_THROW_ON_ERROR(vkBeginCommandBuffer(mrtCommandBuffers[i], &info), "Begin command buffer recording failed!");
 
-		VkClearDepthStencilValue cDepthColor = { 1.0f, 0 };
-
-		VkImageSubresourceRange imageRange = {};
-		imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageRange.levelCount = 1;
-		imageRange.layerCount = 1;
-		VkImageSubresourceRange depthRange = {};
-		depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		depthRange.levelCount = 1;
-		depthRange.layerCount = 1;
-
-		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffers[i]);
-		vkCmdClearColorImage(commandBuffers[i], swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
-		    1, &imageRange);
-		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, commandBuffers[i]);
-		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffers[i]);
-		vkCmdClearDepthStencilImage(commandBuffers[i], depthImages[i].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    &cDepthColor, 1, &depthRange);
-		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, commandBuffers[i]);
+		std::array<VkClearValue, 4> clearColors = {};
+		for (auto& clearColor : clearColors) {
+			clearColor.color = cClearColor;
+			clearColor.depthStencil = cDepthColor;
+		}
 
 		VkRenderPassBeginInfo renderPassInfo {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = pGraphicsPipeline->getRenderPassPtr();
-		renderPassInfo.framebuffer = swapChainFramebuffersRef[i];
-		renderPassInfo.clearValueCount = 0;
+		renderPassInfo.renderPass = pGraphicsPipeline->getMRTRenderPassPtr();
+		renderPassInfo.framebuffer = mrtFramebuffersRef[i].framebuffer;
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearColors.size());
+		renderPassInfo.pClearValues = clearColors.data();
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapChainExtent;
+		renderPassInfo.renderArea.extent = mrtFramebuffersRef[i].extent;
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-		    pGraphicsPipeline->getVkGraphicsPipelinePtr());
+		vkCmdBeginRenderPass(mrtCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		
+		vkCmdBindPipeline(mrtCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+		    pGraphicsPipeline->getMRTPipelinePtr());
 		if (pDrawBuffer.buffer) {
 			VkBuffer vtxBuffers[] = { pDrawBuffer.buffer };
-			vkCmdBindIndexBuffer(commandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer(mrtCommandBuffers[i], pDrawBuffer.buffer, indexBufferOffset, VK_INDEX_TYPE_UINT32);
 
-			const auto shaderProgram = pGraphicsPipeline->getShaderProgramPtr();
+			const auto shaderProgram = pGraphicsPipeline->getMRTShaderProgramPtr();
 			const auto meshes = pScene ? pScene->getRenderableScene() : std::vector<std::shared_ptr<Geometry::Node>>();
 
 			uint32_t j = 0;
@@ -960,41 +1034,91 @@ void RenderBackend::recordDrawCmdBuffers()
 				auto mesh = std::static_pointer_cast<Geometry::Mesh, Geometry::Node>(node);
 
 				VkDeviceSize offsets[] = { mesh->bufferOffset.vertexOffs };
-				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vtxBuffers, offsets);
+				vkCmdBindVertexBuffers(mrtCommandBuffers[i], 0, 1, vtxBuffers, offsets);
 
 				std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
 
 				std::vector<VkDescriptorSet> sets;
-				sets.push_back(pGraphicsPipeline->getDescriptorSetPtr());
+				sets.push_back(pGraphicsPipeline->getMRTDescriptorSetPtr());
 				sets.push_back(mesh->getMaterial()->getDescriptorSet());
 				if (pCamera) {
 					auto pc = mesh->getMaterial()->getUniforms();
-					vkCmdPushConstants(commandBuffers[i], pGraphicsPipeline->getPipelineLayoutPtr(),
+					vkCmdPushConstants(mrtCommandBuffers[i], pGraphicsPipeline->getMRTPipelineLayoutPtr(),
 					    VK_SHADER_STAGE_FRAGMENT_BIT, 0,
 					    static_cast<uint32_t>(sizeof(Material::MaterialUniforms)), &pc);
-					vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-					    pGraphicsPipeline->getPipelineLayoutPtr(), 0,
+					vkCmdBindDescriptorSets(mrtCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+					    pGraphicsPipeline->getMRTPipelineLayoutPtr(), 0,
 					    static_cast<uint32_t>(sets.size()), sets.data(),
 					    static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 					if (computeEnabled) {
-						vkCmdDrawIndexedIndirect(commandBuffers[i], pIndirectCommandsBuffer.buffer, j * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+						vkCmdDrawIndexedIndirect(mrtCommandBuffers[i], pIndirectCommandsBuffer.buffer, j * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 					} else {
-						vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh->size()), 1,
+						vkCmdDrawIndexed(mrtCommandBuffers[i], static_cast<uint32_t>(mesh->size()), 1,
 						    static_cast<uint32_t>(mesh->bufferOffset.indexOffs), 0, 0);
 					}
 				}
 				++j;
 			}
 		}
-		vkCmdEndRenderPass(commandBuffers[i]);
+		vkCmdEndRenderPass(mrtCommandBuffers[i]);
 
-		VK_THROW_ON_ERROR(vkEndCommandBuffer(commandBuffers[i]), "End command buffer recording failed!");
+		VK_THROW_ON_ERROR(vkEndCommandBuffer(mrtCommandBuffers[i]), "End command buffer recording failed!");
+
+		VK_THROW_ON_ERROR(vkBeginCommandBuffer(deferredCommandBuffers[i], &info), "Begin command buffer recording failed!");
+
+		// Deferred Command buffers
+		VkImageSubresourceRange imageRange = {};
+		imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageRange.levelCount = 1;
+		imageRange.layerCount = 1;
+		VkImageSubresourceRange depthRange = {};
+		depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		depthRange.levelCount = 1;
+		depthRange.layerCount = 1;
+
+		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
+		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deferredCommandBuffers[i]);
+		vkCmdClearColorImage(deferredCommandBuffers[i], swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
+		    1, &imageRange);
+		transitionImageLayout(swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, deferredCommandBuffers[i]);
+		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
+		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deferredCommandBuffers[i]);
+		vkCmdClearDepthStencilImage(deferredCommandBuffers[i], depthImages[i].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		    &cDepthColor, 1, &depthRange);
+		transitionImageLayout(depthImages[i].image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, deferredCommandBuffers[i]);
+
+		renderPassInfo.renderPass = pGraphicsPipeline->getDeferredRenderPassPtr();
+		renderPassInfo.framebuffer = swapChainFramebuffersRef[i];
+		renderPassInfo.clearValueCount = 0;
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
+
+		vkCmdBeginRenderPass(deferredCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(deferredCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+		    pGraphicsPipeline->getDeferredPipelinePtr());
+
+		VkDeviceSize vtxBufferOffs[] = { 0 };
+
+		std::vector<VkDescriptorSet> sets;
+		sets.push_back(pGraphicsPipeline->getDeferredDescriptorSetPtr(i));
+		vkCmdBindDescriptorSets(deferredCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pGraphicsPipeline->getDeferredPipelineLayoutPtr(), 0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+
+		vkCmdBindVertexBuffers(deferredCommandBuffers[i], 0, 1, &screenQuadBuffer.buffer, vtxBufferOffs);
+		vkCmdBindIndexBuffer(deferredCommandBuffers[i], screenQuadBuffer.buffer, screenQuad.indexOffset, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(deferredCommandBuffers[i], static_cast<uint32_t>(screenQuad.size), 1, 0, 0, 1);
+
+		vkCmdEndRenderPass(deferredCommandBuffers[i]);
+		VK_THROW_ON_ERROR(vkEndCommandBuffer(deferredCommandBuffers[i]), "End command buffer recording failed!");
 	}
 }
 
 void RenderBackend::createSyncObjects()
 {
 	semImageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
+	semMRTFinished.resize(MAX_FRAMES_IN_FLIGHT);
 	semRenderFinished.resize(MAX_FRAMES_IN_FLIGHT);
 	semUiFinished.resize(MAX_FRAMES_IN_FLIGHT);
 	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1004,6 +1128,8 @@ void RenderBackend::createSyncObjects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
 		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semImageAvailable[i]),
+		    "Synchronization obejct creation failed!");
+		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semMRTFinished[i]),
 		    "Synchronization obejct creation failed!");
 		VK_THROW_ON_ERROR(vkCreateSemaphore(pVulkanDevice, &semInfo, nullptr, &semRenderFinished[i]),
 		    "Synchronization obejct creation failed!");
@@ -1051,7 +1177,7 @@ void RenderBackend::setupGui()
 {
 	pUi = std::make_shared<GUI>();
 	pUi->init(static_cast<float>(viewportWidth), static_cast<float>(viewportHeight),
-	    pGraphicsPipeline->getRenderPassPtr());
+	    pGraphicsPipeline->getDeferredRenderPassPtr());
 }
 
 void RenderBackend::setupDebugCallback()

@@ -27,7 +27,7 @@ void _alignedFree(void* data)
 
 using namespace Sparkle::Shaders;
 
-ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources)
+MRTShaderProgram::MRTShaderProgram(const std::vector<ShaderSource>& shaderSources)
 {
 	pUniformBufferMemory = new vkExt::SharedMemory();
 	pDynamicBufferMemory = new vkExt::SharedMemory();
@@ -37,22 +37,22 @@ ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources)
 		switch (shader.type) {
 		case Vertex: {
 			const auto vtxShaderCode = Tools::FileReader::readFile(shader.filePath);
-			vertexShader = createShaderModule(vtxShaderCode);
+			shaderModules.vtxModule = createShaderModule(vtxShaderCode);
 			break;
 		}
 		case TessellationControl: {
 			const auto tescShaderCode = Tools::FileReader::readFile(shader.filePath);
-			tessControlShader = createShaderModule(tescShaderCode);
+			shaderModules.tescModule = createShaderModule(tescShaderCode);
 			break;
 		}
 		case TessellationEvaluation: {
 			const auto teseShaderCode = Tools::FileReader::readFile(shader.filePath);
-			tessEvalShader = createShaderModule(teseShaderCode);
+			shaderModules.teseModule = createShaderModule(teseShaderCode);
 			break;
 		}
 		case Fragment: {
 			const auto fragShaderCode = Tools::FileReader::readFile(shader.filePath);
-			fragmentShader = createShaderModule(fragShaderCode);
+			shaderModules.fragModule = createShaderModule(fragShaderCode);
 			break;
 		}
 		default:
@@ -65,22 +65,9 @@ ShaderProgram::ShaderProgram(const std::vector<ShaderSource>& shaderSources)
 	createDynamicBuffer(0);
 }
 
-void ShaderProgram::cleanup() const
+void MRTShaderProgram::cleanup()
 {
-	const auto device = Sparkle::App::getHandle().getRenderBackend()->getDevice();
-	if (vertexShader) {
-		vkDestroyShaderModule(device, vertexShader, nullptr);
-	}
-	if (tessControlShader) {
-		vkDestroyShaderModule(device, tessControlShader, nullptr);
-	}
-	if (tessEvalShader) {
-		vkDestroyShaderModule(device, tessEvalShader, nullptr);
-	}
-	if (fragmentShader) {
-		vkDestroyShaderModule(device, fragmentShader, nullptr);
-	}
-
+	shaderModules.cleanup();
 	pUniformBuffer.destroy(true);
 	if (pUniformBufferMemory) {
 		delete (pUniformBufferMemory);
@@ -94,66 +81,26 @@ void ShaderProgram::cleanup() const
 	}
 }
 
-void ShaderProgram::updateUniformBufferObject(const UniformBufferObject& ubo)
+void MRTShaderProgram::updateUniformBufferObject(const UniformBufferObject& ubo)
 {
 	pUniformBuffer.map();
 	pUniformBuffer.copyTo(&ubo, sizeof(ubo));
 	pUniformBuffer.unmap();
 }
 
-void ShaderProgram::updateFragmentShaderUniforms(const FragmentShaderUniforms& sets)
+void DeferredShaderProgram::updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo)
 {
-	pUniformBuffer.map(fragSettingsOffset);
-	pUniformBuffer.copyTo(&sets, sizeof(sets));
-	pUniformBuffer.unmap();
+	uniformBuffer.map();
+	uniformBuffer.copyTo(&ubo, sizeof(ubo));
+	uniformBuffer.unmap();
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> ShaderProgram::getShaderStages() const
+std::vector<VkPipelineShaderStageCreateInfo> MRTShaderProgram::getShaderStages() const
 {
-	std::vector<VkPipelineShaderStageCreateInfo> stages;
-	if (vertexShader) {
-		VkPipelineShaderStageCreateInfo stageInfo = {};
-		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stageInfo.module = vertexShader;
-		stageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		stageInfo.pName = "main";
-		stages.push_back(stageInfo);
-	}
-	if (tessControlShader && tessEvalShader) {
-		{
-			VkPipelineShaderStageCreateInfo stageInfo = {};
-			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			stageInfo.module = tessControlShader;
-			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-			stageInfo.pName = "main";
-			stages.push_back(stageInfo);
-		}
-		{
-			VkPipelineShaderStageCreateInfo stageInfo = {};
-			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			stageInfo.module = tessEvalShader;
-			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-			stageInfo.pName = "main";
-			stages.push_back(stageInfo);
-		}
-	}
-	if (fragmentShader) {
-		VkPipelineShaderStageCreateInfo stageInfo = {};
-		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stageInfo.module = fragmentShader;
-		stageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		stageInfo.pName = "main";
-		stages.push_back(stageInfo);
-	}
-
-	if (stages.empty()) {
-		throw std::runtime_error("No shader stages enabled! Cannot create Pipeline without at least one stage");
-	}
-
-	return stages;
+	return shaderModules.getShaderStages();
 }
 
-void ShaderProgram::createUniformBuffer()
+void MRTShaderProgram::createUniformBuffer()
 {
 	const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
 
@@ -161,20 +108,15 @@ void ShaderProgram::createUniformBuffer()
 	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
 	const auto alignment = props.limits.minUniformBufferOffsetAlignment;
 
-	const auto uboSize = sizeof(UniformBufferObject);
+	auto uboSize = sizeof(UniformBufferObject);
 	if (alignment > 0) {
-		fragSettingsOffset = (uboSize + alignment - 1) & ~(alignment - 1);
-	} else {
-		fragSettingsOffset = uboSize;
+		uboSize = (uboSize + alignment - 1) & ~(alignment - 1);
 	}
-
-	const auto fragSize = sizeof(FragmentShaderUniforms);
-
-	const auto bufferSize = fragSettingsOffset + fragSize;
+	const auto bufferSize = uboSize;
 	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pUniformBuffer, pUniformBufferMemory);
 }
 
-void ShaderProgram::createDynamicBuffer(VkDeviceSize size)
+void MRTShaderProgram::createDynamicBuffer(VkDeviceSize size)
 {
 	const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
 
@@ -206,7 +148,7 @@ void ShaderProgram::createDynamicBuffer(VkDeviceSize size)
 	// getDescriptorInfos();
 }
 
-void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Sparkle::Geometry::Node>>& meshes)
+void MRTShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Sparkle::Geometry::Node>>& meshes)
 {
 	if (!(pDynamicBuffer.buffer) || meshes.size() * dUboAlignment > dynamicUboDataSize) {
 		createDynamicBuffer(meshes.size());
@@ -221,7 +163,7 @@ void ShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shar
 	pDynamicBuffer.flush();
 }
 
-std::array<VkDescriptorBufferInfo, 2> ShaderProgram::getDescriptorInfos() const
+VkDescriptorBufferInfo MRTShaderProgram::getDescriptorInfos() const
 {
 	const VkDescriptorBufferInfo uboModel = {
 		pUniformBuffer.buffer,
@@ -229,14 +171,148 @@ std::array<VkDescriptorBufferInfo, 2> ShaderProgram::getDescriptorInfos() const
 		sizeof(UniformBufferObject)
 	};
 
-	const VkDescriptorBufferInfo fragSettingsModel = {
-		pUniformBuffer.buffer,
-		fragSettingsOffset,
+	return uboModel;
+}
+
+/*
+*	Deferred Shader Program
+*/
+
+DeferredShaderProgram::DeferredShaderProgram(const std::vector<ShaderSource>& shaderSources)
+{
+	uniformBufferMemory = new vkExt::SharedMemory();
+
+	for (const auto& shader : shaderSources) {
+		switch (shader.type) {
+		case Vertex: {
+			const auto vtxShaderCode = Tools::FileReader::readFile(shader.filePath);
+			shaderModules.vtxModule = createShaderModule(vtxShaderCode);
+			break;
+		}
+		case TessellationControl: {
+			const auto tescShaderCode = Tools::FileReader::readFile(shader.filePath);
+			shaderModules.tescModule = createShaderModule(tescShaderCode);
+			break;
+		}
+		case TessellationEvaluation: {
+			const auto teseShaderCode = Tools::FileReader::readFile(shader.filePath);
+			shaderModules.teseModule = createShaderModule(teseShaderCode);
+			break;
+		}
+		case Fragment: {
+			const auto fragShaderCode = Tools::FileReader::readFile(shader.filePath);
+			shaderModules.fragModule = createShaderModule(fragShaderCode);
+			break;
+		}
+		default:
+			throw std::runtime_error("Unsupported Shader type for Graphics Shader! Did you mean to use a compute shader?");
+			break;
+		}
+	}
+
+	createUniformBuffer();
+}
+
+void DeferredShaderProgram::cleanup()
+{
+	shaderModules.cleanup();
+	uniformBuffer.destroy(true);
+	if (uniformBufferMemory) {
+		delete (uniformBufferMemory);
+	}
+}
+
+std::vector<VkPipelineShaderStageCreateInfo> DeferredShaderProgram::getShaderStages() const
+{
+	return shaderModules.getShaderStages();
+}
+
+void DeferredShaderProgram::createUniformBuffer()
+{
+	const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
+
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(renderer->getPhysicalDevice(), &props);
+	const auto alignment = props.limits.minUniformBufferOffsetAlignment;
+
+	auto uboSize = sizeof(FragmentShaderUniforms);
+	if (alignment > 0) {
+		uboSize = (uboSize + alignment - 1) & ~(alignment - 1);
+	}
+	const auto bufferSize = uboSize;
+	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
+}
+
+VkDescriptorBufferInfo DeferredShaderProgram::getDescriptorInfos() const
+{
+	const VkDescriptorBufferInfo fragUboModel = {
+		uniformBuffer.buffer,
+		0,
 		sizeof(FragmentShaderUniforms)
 	};
+	return fragUboModel;
+}
 
-	const std::array<VkDescriptorBufferInfo, 2> descSets = { uboModel, fragSettingsModel };
-	return descSets;
+void ShaderProgramBase::cleanup()
+{
+	const auto device = Sparkle::App::getHandle().getRenderBackend()->getDevice();
+	if (vtxModule) {
+		vkDestroyShaderModule(device, vtxModule, nullptr);
+	}
+	if (tescModule) {
+		vkDestroyShaderModule(device, tescModule, nullptr);
+	}
+	if (teseModule) {
+		vkDestroyShaderModule(device, teseModule, nullptr);
+	}
+	if (fragModule) {
+		vkDestroyShaderModule(device, fragModule, nullptr);
+	}
+}
+
+std::vector<VkPipelineShaderStageCreateInfo> ShaderProgramBase::getShaderStages() const
+{
+	std::vector<VkPipelineShaderStageCreateInfo> stages;
+	if (vtxModule) {
+		VkPipelineShaderStageCreateInfo stageInfo = {};
+		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stageInfo.module = vtxModule;
+		stageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		stageInfo.pName = "main";
+		stages.push_back(stageInfo);
+	}
+	if (tescModule && teseModule) {
+		{
+			VkPipelineShaderStageCreateInfo stageInfo = {};
+			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			stageInfo.module = tescModule;
+			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+			stageInfo.pName = "main";
+			stages.push_back(stageInfo);
+		}
+		{
+			VkPipelineShaderStageCreateInfo stageInfo = {};
+			stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			stageInfo.module = teseModule;
+			stageInfo.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+			stageInfo.pName = "main";
+			stages.push_back(stageInfo);
+		}
+	}
+	if (fragModule) {
+		VkPipelineShaderStageCreateInfo stageInfo = {};
+		stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stageInfo.module = fragModule;
+		stageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		stageInfo.pName = "main";
+		stages.push_back(stageInfo);
+	}
+
+	if (stages.empty()) {
+		throw std::runtime_error("No shader stages enabled! Cannot create Pipeline without at least one stage");
+	}
+
+	return stages;
 }
 
 inline VkShaderModule Sparkle::Shaders::createShaderModule(const std::vector<char>& code)

@@ -6,70 +6,94 @@
 #include "VulkanExtension.h"
 
 namespace Sparkle {
-class GraphicsPipeline {
+class DeferredDraw {
 public:
-    struct FrameBufferAtt {
-        vkExt::Image image;
-        VkImageView view;
-        vkExt::SharedMemory* memory;
-    };
-    struct FrameBuffer {
-        int32_t width;
-        int32_t height;
-        VkFramebuffer framebuffer;
-        FrameBufferAtt position;
-        FrameBufferAtt normal;
-        FrameBufferAtt pbrValues;
-        FrameBufferAtt depth;
-        VkRenderPass renderPass;
-    };
+	struct FrameBufferAtt {
+		vkExt::Image image;
+		VkImageView view;
+		vkExt::SharedMemory* memory;
+		VkFormat format;
+	};
+	struct MRTFrameBuffer {
+		VkExtent2D extent;
+		VkFramebuffer framebuffer;
+		FrameBufferAtt position;
+		FrameBufferAtt normal;
+		FrameBufferAtt pbrValues;
+		FrameBufferAtt depth;
+	};
 
-    GraphicsPipeline(VkViewport targetViewport)
-        : viewport(targetViewport)
-    {
-        initPipeline();
-    }
+	DeferredDraw(VkViewport targetViewport)
+	    : viewport(targetViewport)
+	{
+		initPipelines();
+	}
 
-    void initPipeline();
-    void updateDescriptorSets() const;
+	void initPipelines();
+	void updateMRTDescriptorSets() const;
+	void updateDeferredDescriptorSets() const;
+	void updateDescriptorSets() const;
 
-    auto getFramebufferPtr() { return swapChainFramebuffers.data(); }
-    auto getFramebufferPtrs() const { return swapChainFramebuffers; }
-    auto getRenderPassPtr() const { return pRenderPass; }
-    auto getVkGraphicsPipelinePtr() const { return pGraphicsPipeline; }
-    auto getPipelineLayoutPtr() const { return pPipelineLayout; }
-    auto getDescriptorSetPtr()
-    {
-        if (shader->dynamicBufferDirty) {
-            updateDescriptorSets();
-            shader->dynamicBufferDirty = false;
-        }
-        return pDescriptorSet;
-    }
+	auto getDeferredFramebufferPtr() { return swapChainFramebuffers.data(); }
+	auto getDeferredFramebufferPtrs() const { return swapChainFramebuffers; }
+	auto getDeferredRenderPassPtr() const { return deferredRenderPass; }
+	auto getDeferredPipelinePtr() const { return deferredPipeline; }
+	auto getDeferredPipelineLayoutPtr() const { return deferredPipelineLayout; }
+	auto getDeferredDescriptorSetPtr(size_t index)
+	{
+		return deferredDescriptorSets[index];
+	}
 
-    auto getShaderProgramPtr() const { return shader; }
+	auto getMRTFramebufferPtr() { return offscreenFramebuffers.data(); }
+	auto getMRTFramebufferPtrs() const { return offscreenFramebuffers; }
+	auto getMRTRenderPassPtr() const { return mrtRenderPass; }
+	auto getMRTPipelinePtr() const { return mrtPipeline; }
+	auto getMRTPipelineLayoutPtr() const { return mrtPipelineLayout; }
+	auto getMRTDescriptorSetPtr()
+	{
+		if (mrtProgram->dynamicBufferDirty) {
+			updateMRTDescriptorSets();
+			mrtProgram->dynamicBufferDirty = false;
+		}
+		return mrtDescriptorSet;
+	}
 
-    void cleanup();
+	auto getMRTShaderProgramPtr() const { return mrtProgram; }
+	auto getDeferredShaderProgramPtr() const { return deferredProgram; }
+
+	void cleanup();
 
 private:
-    VkDescriptorSetLayout pDescriptorSetLayout {};
-    VkDescriptorSet pDescriptorSet {};
-    VkDescriptorPool pDescriptorPool {};
+	VkDescriptorSetLayout mrtDescriptorSetLayout {};
+	VkDescriptorSet mrtDescriptorSet {};
+	//VkDescriptorPool mrtDescriptorPool {};
 
-    VkRenderPass pRenderPass {};
-    VkPipelineLayout pPipelineLayout {};
-    VkPipeline pGraphicsPipeline {};
+	VkDescriptorSetLayout deferredDescriptorSetLayout {};
+	std::vector<VkDescriptorSet> deferredDescriptorSets {};
+	//VkDescriptorPool deferredDescriptorPool {};
 
-    VkViewport viewport {};
+	//VkDescriptorSetLayout descriptorSetLayout {};
+	//VkDescriptorSet descriptorSet {};
+	VkDescriptorPool descriptorPool {};
 
-    VkSampler offScreenSampler = nullptr;
+	VkRenderPass deferredRenderPass {};
+	VkPipelineLayout deferredPipelineLayout {};
+	VkPipeline deferredPipeline {};
 
-    std::vector<VkFramebuffer> swapChainFramebuffers;
-    std::vector<FrameBuffer> offscreenBuffers;
-    std::vector<FrameBufferAtt> offscreenAttachments;
+	VkRenderPass mrtRenderPass {};
+	VkPipelineLayout mrtPipelineLayout {};
+	VkPipeline mrtPipeline {};
 
-    std::shared_ptr<Sparkle::Shaders::ShaderProgram> shader;
+	VkSampler colorSampler = nullptr;
 
-    void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt* attachment);
+	VkViewport viewport {};
+
+	std::vector<VkFramebuffer> swapChainFramebuffers;
+	std::vector<MRTFrameBuffer> offscreenFramebuffers;
+
+	std::shared_ptr<Sparkle::Shaders::MRTShaderProgram> mrtProgram;
+	std::shared_ptr<Sparkle::Shaders::DeferredShaderProgram> deferredProgram;
+
+	void initAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAtt* attachment);
 };
-}
+} // namespace Sparkle

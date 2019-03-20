@@ -32,7 +32,18 @@ namespace Shaders {
 
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 
-	class ShaderProgram {
+	struct ShaderProgramBase {
+		VkShaderModule vtxModule = nullptr;	 // vertex shader
+		VkShaderModule tescModule = nullptr; // tessellation control shader
+		VkShaderModule teseModule = nullptr; // tessellation evaluation shader
+		VkShaderModule geomModule = nullptr; // geometry shader
+		VkShaderModule fragModule = nullptr; // fragment shader
+
+		std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
+		void cleanup();
+	};
+
+	class MRTShaderProgram {
 	public:
 		struct UniformBufferObject {
 			glm::mat4 view;
@@ -44,32 +55,18 @@ namespace Shaders {
 			glm::mat4 normal;
 		};
 
-		struct FragmentShaderUniforms {
-			glm::vec4 cameraPos;
-			uint32_t numLights;
-			float exposure = 1.0f;
-			float gamma = 2.2f;
-			float _pad;
-			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
-		};
+		MRTShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources);
 
-		ShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources);
-
-		void cleanup() const;
+		void cleanup();
 
 		void updateUniformBufferObject(const UniformBufferObject& ubo);
 		void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
-		void updateFragmentShaderUniforms(const FragmentShaderUniforms& sets);
 
 		auto getDynamicAlignment() const { return dUboAlignment; }
 
 		std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
-		auto tesselationEnabled() const
-		{
-			return (tessControlShader != nullptr && tessEvalShader != nullptr);
-		}
 
-		std::array<VkDescriptorBufferInfo, 2> getDescriptorInfos() const;
+		VkDescriptorBufferInfo getDescriptorInfos() const;
 
 		vkExt::Buffer pUniformBuffer;
 		vkExt::Buffer pDynamicBuffer;
@@ -77,15 +74,10 @@ namespace Shaders {
 		bool dynamicBufferDirty = true;
 
 	private:
-		VkShaderModule vertexShader = nullptr;
-		VkShaderModule tessControlShader = nullptr;
-		VkShaderModule tessEvalShader = nullptr;
-		VkShaderModule fragmentShader = nullptr;
+		ShaderProgramBase shaderModules;
 
 		vkExt::SharedMemory* pUniformBufferMemory;
 		vkExt::SharedMemory* pDynamicBufferMemory;
-
-		size_t fragSettingsOffset {};
 
 		size_t objectCount;
 		uint32_t dUboAlignment {};
@@ -95,6 +87,35 @@ namespace Shaders {
 
 		void createUniformBuffer();
 		void createDynamicBuffer(VkDeviceSize size);
+	};
+
+	class DeferredShaderProgram {
+	public:
+		struct FragmentShaderUniforms {
+			glm::vec4 cameraPos;
+			uint32_t numLights;
+			float exposure = 1.0f;
+			float gamma = 2.2f;
+			float _pad;
+			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
+		};
+
+		DeferredShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources);
+		void cleanup();
+
+		void updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo);
+
+		std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
+		VkDescriptorBufferInfo getDescriptorInfos() const;
+
+		vkExt::Buffer uniformBuffer;
+
+	private:
+		ShaderProgramBase shaderModules;
+
+		vkExt::SharedMemory* uniformBufferMemory;
+
+		void createUniformBuffer();
 	};
 } // namespace Shaders
 } // namespace Sparkle
