@@ -15,7 +15,8 @@ struct PS_OUTPUT {
 
 [[vk::binding(1, 0)]] Texture2D positionTex;
 [[vk::binding(2, 0)]] Texture2D normalsTex;
-[[vk::binding(3, 0)]] Texture2D albedoMRTex;
+[[vk::binding(3, 0)]] Texture2D albedoTex;
+[[vk::binding(4, 0)]] Texture2D pbrSpecularTex;
 
 struct Light {
 	float4 position;
@@ -142,14 +143,21 @@ PS_OUTPUT main(in PS_INPUT input)
 	float4 pos = positionTex.Sample(textureSampler, input.uv);
 	float4 normal = normalsTex.Sample(textureSampler, input.uv);
 
-	uint4 albedoMR = albedoMRTex.Sample(textureSampler, input.uv);
-	float g = f16tof32(albedoMR.r);
-	float r = f16tof32(albedoMR.r >> 8);
-	float a = f16tof32(albedoMR.g);
-	float b = f16tof32(albedoMR.g >> 8);
+	float4 albedoMR = albedoTex.Sample(textureSampler, input.uv);
+
+	/*uint lower = albedoMR.r & 0x0000FFFF;
+	uint higher = albedoMR.r >> 16;
+	float r = f16tof32(higher);
+	float g = f16tof32(lower);
+
+	lower = albedoMR.g & 0x0000FFFF;
+	higher = albedoMR.g >> 16;
+	float b = f16tof32(higher);
+	float a = f16tof32(lower);
 
 	float4 color = float4(r, g, b, a);
-	output.color = color;
+	*/
+	output.color = albedoMR;
 	return output;
 
 	//if (albedoMR.a == 0) { // pbr

@@ -24,10 +24,9 @@ void DeferredDraw::initPipelines()
 		colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
-		VkAttachmentReference depthReference = {};
-		depthReference.attachment = 3;
-		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference depthReference = { 4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
 
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -60,28 +59,32 @@ void DeferredDraw::initPipelines()
 			framebuffer.extent = extent;
 			initAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &framebuffer.position);
 			initAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &framebuffer.normal);
-			initAttachment(VK_FORMAT_R32G32B32A32_UINT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &framebuffer.pbrValues);
+			initAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &framebuffer.albedo);
+			initAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &framebuffer.pbrSpecular);
 			initAttachment(depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &framebuffer.depth);
 		}
 
-		std::array<VkAttachmentDescription, 4> attDescs = {};
-		for (auto j = 0u; j < 4; ++j) {
+		std::array<VkAttachmentDescription, 5> attDescs = {};
+		for (auto j = 0u; j < 5; ++j) {
 			attDescs[j].samples = VK_SAMPLE_COUNT_1_BIT;
-			attDescs[j].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			attDescs[j].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 			attDescs[j].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			attDescs[j].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			attDescs[j].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			if (j == 3) { // depth att
+			if (j == 4) { // depth att
+				attDescs[j].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				attDescs[j].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			} else {
+				attDescs[j].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attDescs[j].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
 		}
 
 		attDescs[0].format = offscreenFramebuffers[0].position.format;
 		attDescs[1].format = offscreenFramebuffers[0].normal.format;
-		attDescs[2].format = offscreenFramebuffers[0].pbrValues.format;
-		attDescs[3].format = offscreenFramebuffers[0].depth.format;
+		attDescs[2].format = offscreenFramebuffers[0].albedo.format;
+		attDescs[3].format = offscreenFramebuffers[0].pbrSpecular.format;
+		attDescs[4].format = offscreenFramebuffers[0].depth.format;
 
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -95,10 +98,11 @@ void DeferredDraw::initPipelines()
 		VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &mrtRenderPass), "Unable to create RenderPass for MRT!");
 
 		for (auto& fb : offscreenFramebuffers) {
-			std::array<VkImageView, 4> attachments = {
+			std::array<VkImageView, 5> attachments = {
 				fb.position.view,
 				fb.normal.view,
-				fb.pbrValues.view,
+				fb.albedo.view,
+				fb.pbrSpecular.view,
 				fb.depth.view
 			};
 
@@ -189,8 +193,8 @@ void DeferredDraw::initPipelines()
 		VK_THROW_ON_ERROR(vkCreateRenderPass(device, &renderPassInfo, nullptr, &deferredRenderPass), "RenderPass creation failed!");
 
 		// create shader modules
-		Shaders::ShaderSource vtx = { Shaders::ShaderType::Vertex, "shaders/MRT.vert.spv" };
-		Shaders::ShaderSource frag = { Shaders::ShaderType::Fragment, "shaders/MRT.frag.spv" };
+		Shaders::ShaderSource vtx = { Shaders::ShaderType::Vertex, "shaders/MRT.vert.hlsl.spv" };
+		Shaders::ShaderSource frag = { Shaders::ShaderType::Fragment, "shaders/MRT.frag.hlsl.spv" };
 		std::vector<Shaders::ShaderSource> shaders = { vtx, frag };
 		mrtProgram = std::make_unique<Shaders::MRTShaderProgram>(shaders);
 
@@ -295,14 +299,22 @@ void DeferredDraw::initPipelines()
 			nullptr
 		};
 		deferredBindings.push_back(normalTexBinding);
-		const VkDescriptorSetLayoutBinding albedoMRTexBinding = {
+		const VkDescriptorSetLayoutBinding albedoTexBinding = {
 			3,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			1,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		};
-		deferredBindings.push_back(albedoMRTexBinding);
+		deferredBindings.push_back(albedoTexBinding);
+		const VkDescriptorSetLayoutBinding pbrTexBinding = {
+			4,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		};
+		deferredBindings.push_back(pbrTexBinding);
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -330,7 +342,7 @@ void DeferredDraw::initPipelines()
 		};
 		sizes[2] = {
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			3 * udefDescSets
+			4 * udefDescSets
 		};
 
 		VkDescriptorPoolCreateInfo info = {
@@ -395,8 +407,8 @@ void DeferredDraw::initPipelines()
 		depthStencil.depthBoundsTestEnable = VK_FALSE;
 		depthStencil.stencilTestEnable = VK_FALSE;
 
-		std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachments = {};
-		for (auto i = 0u; i < 3; ++i) {
+		std::array<VkPipelineColorBlendAttachmentState, 4> blendAttachments = {};
+		for (auto i = 0u; i < 4; ++i) {
 			blendAttachments[i].colorWriteMask = 0xF;
 			blendAttachments[i].blendEnable = VK_FALSE;
 		}
@@ -572,7 +584,7 @@ void DeferredDraw::updateDeferredDescriptorSets() const
 
 		VkDescriptorImageInfo albInfo = {};
 		albInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		albInfo.imageView = offscreenFramebuffers[i].pbrValues.view;
+		albInfo.imageView = offscreenFramebuffers[i].albedo.view;
 		albInfo.sampler = colorSampler;
 
 		const VkWriteDescriptorSet alb = {
@@ -588,6 +600,24 @@ void DeferredDraw::updateDeferredDescriptorSets() const
 			nullptr
 		};
 		write.push_back(alb);
+		VkDescriptorImageInfo pbrInfo = {};
+		pbrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		pbrInfo.imageView = offscreenFramebuffers[i].pbrSpecular.view;
+		pbrInfo.sampler = colorSampler;
+
+		const VkWriteDescriptorSet pbr = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			descSet,
+			4,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			&pbrInfo,
+			nullptr,
+			nullptr
+		};
+		write.push_back(pbr);
 
 		vkUpdateDescriptorSets(App::getHandle().getRenderBackend()->getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
 		++i;
@@ -620,8 +650,10 @@ void DeferredDraw::cleanup()
 		delete (fb.position.memory);
 		fb.normal.memory->free(device);
 		delete (fb.normal.memory);
-		fb.pbrValues.memory->free(device);
-		delete (fb.pbrValues.memory);
+		fb.albedo.memory->free(device);
+		delete (fb.albedo.memory);
+		fb.pbrSpecular.memory->free(device);
+		delete (fb.pbrSpecular.memory);
 		fb.depth.memory->free(device);
 		delete (fb.depth.memory);
 		/*vkDestroyImageView(device, fb.position.view, nullptr);
@@ -664,6 +696,6 @@ void DeferredDraw::initAttachment(VkFormat format, VkImageUsageFlagBits usage, D
 	const auto extent = backend->getSwapChainExtent();
 
 	attachment->memory = new vkExt::SharedMemory();
-	backend->createImage2D(extent.width, extent.height, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
+	backend->createImage2D(extent.width, extent.height, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
 	attachment->view = backend->createImageView2D(attachment->image.image, format, aspectMask);
 }

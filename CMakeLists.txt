@@ -79,8 +79,8 @@ set(SHADERS
 	shaders/ui.vert
 	shaders/deferred.vert.hlsl
 	shaders/deferred.frag.hlsl
-	shaders/MRT.vert
-	shaders/MRT.frag
+	shaders/MRT.vert.hlsl
+	shaders/MRT.frag.hlsl
 	shaders/cull.comp
 )
 
