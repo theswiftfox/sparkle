@@ -6,7 +6,7 @@
 
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
-layout (location = 2) out uvec4 outAlbedoMR;
+layout (location = 2) out vec4 outAlbedoMR;
 
 layout(location = 0) in VS_OUT {
 	vec3 position;
@@ -14,7 +14,6 @@ layout(location = 0) in VS_OUT {
 	vec3 tangent;
 	vec3 bitangent;
 	vec2 uv;
-
 } fs_in;
 
 layout(binding=0, set=1) uniform sampler2D albedoTexture;
@@ -38,15 +37,9 @@ float calcLinearDepth(float zval)
 }
 
 void main() {
-	outPosition = vec4(255.0, 0.0, 0.0, 1.0);
-	outNormal = vec4(0.0, 0.0, 255.0, 1.0);
-	outAlbedoMR = uvec4(0, 255, 0, 1);
-
-	return;
-	
-	outPosition = texture(albedoTexture, fs_in.uv); //vec4(fs_in.position, calcLinearDepth(fs_in.position.z));
 	vec4 albedo = texture(albedoTexture, fs_in.uv);
 
+	outPosition = vec4(fs_in.position, calcLinearDepth(fs_in.position.z));
 	vec4 normal = vec4(0.0);
 	if ((mat.features & SPARKLE_MAT_NORMAL_MAP) == SPARKLE_MAT_NORMAL_MAP) {
 		normal = texture(normalTexture, fs_in.uv);
@@ -72,15 +65,17 @@ void main() {
 	float metallic = texture(metallicTexture, fs_in.uv).r;
 	float roughness = texture(roughnessTexture, fs_in.uv).r;
 
-	outAlbedoMR.r = packHalf2x16(albedo.rg);
-	outAlbedoMR.g = packHalf2x16(albedo.ba);
+	//outAlbedoMR.r = packHalf2x16(albedo.rg);
+	//outAlbedoMR.g = packHalf2x16(albedo.ba);
 
-	if ((mat.features & SPARKLE_MAT_PBR) == SPARKLE_MAT_PBR) {
-		outAlbedoMR.b = packHalf2x16(vec2(metallic, roughness));
-		outAlbedoMR.a = 0;
-	} else {
-		vec4 specular = texture(specularTexture, fs_in.uv);
-		outAlbedoMR.b = packHalf2x16(specular.rg);
-		outAlbedoMR.a = packHalf2x16(specular.ba);
-	}
+	//if ((mat.features & SPARKLE_MAT_PBR) == SPARKLE_MAT_PBR) {
+	//	outAlbedoMR.b = packHalf2x16(vec2(metallic, roughness));
+	//	outAlbedoMR.a = 0;
+	//} else {
+	//	vec4 specular = texture(specularTexture, fs_in.uv);
+	//	outAlbedoMR.b = packHalf2x16(specular.rg);
+	//	outAlbedoMR.a = packHalf2x16(specular.ba);
+	//}
+
+	outAlbedoMR = albedo;
 }

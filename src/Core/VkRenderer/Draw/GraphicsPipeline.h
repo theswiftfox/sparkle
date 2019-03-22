@@ -19,7 +19,8 @@ public:
 		VkFramebuffer framebuffer;
 		FrameBufferAtt position;
 		FrameBufferAtt normal;
-		FrameBufferAtt pbrValues;
+		FrameBufferAtt albedo;
+		FrameBufferAtt pbrSpecular;
 		FrameBufferAtt depth;
 	};
 
