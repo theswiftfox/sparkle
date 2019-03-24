@@ -67,15 +67,13 @@ void DeferredDraw::initPipelines()
 		std::array<VkAttachmentDescription, 5> attDescs = {};
 		for (auto j = 0u; j < 5; ++j) {
 			attDescs[j].samples = VK_SAMPLE_COUNT_1_BIT;
-			attDescs[j].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attDescs[j].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			attDescs[j].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			attDescs[j].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			attDescs[j].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			if (j == 4) { // depth att
-				attDescs[j].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				attDescs[j].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			} else {
-				attDescs[j].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attDescs[j].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
 		}
@@ -696,6 +694,6 @@ void DeferredDraw::initAttachment(VkFormat format, VkImageUsageFlagBits usage, D
 	const auto extent = backend->getSwapChainExtent();
 
 	attachment->memory = new vkExt::SharedMemory();
-	backend->createImage2D(extent.width, extent.height, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
+	backend->createImage2D(extent.width, extent.height, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
 	attachment->view = backend->createImageView2D(attachment->image.image, format, aspectMask);
 }

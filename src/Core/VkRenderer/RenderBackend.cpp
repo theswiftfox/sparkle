@@ -1001,9 +1001,14 @@ void RenderBackend::recordDrawCmdBuffers()
 		VK_THROW_ON_ERROR(vkBeginCommandBuffer(mrtCommandBuffers[i], &info), "Begin command buffer recording failed!");
 
 		std::array<VkClearValue, 5> clearColors = {};
+		size_t c = 0u;
 		for (auto& clearColor : clearColors) {
-			clearColor.color = cClearColor;
-			clearColor.depthStencil = cDepthColor;
+			if (c == 4) {
+				clearColor.depthStencil = { 1.0f, 0 };
+			} else {
+				clearColor.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+			}
+			++c;
 		}
 
 		VkImageSubresourceRange imageRange = {};
@@ -1014,46 +1019,6 @@ void RenderBackend::recordDrawCmdBuffers()
 		depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		depthRange.levelCount = 1;
 		depthRange.layerCount = 1;
-
-		// clear position
-		transitionImageLayout(mrtFramebuffersRef[i].position.image.image, swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mrtCommandBuffers[i]);
-		vkCmdClearColorImage(mrtCommandBuffers[i], mrtFramebuffersRef[i].position.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
-		    1, &imageRange);
-		transitionImageLayout(mrtFramebuffersRef[i].position.image.image, mrtFramebuffersRef[i].position.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, mrtCommandBuffers[i]);
-
-		// normal
-		transitionImageLayout(mrtFramebuffersRef[i].normal.image.image, swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mrtCommandBuffers[i]);
-		vkCmdClearColorImage(mrtCommandBuffers[i], mrtFramebuffersRef[i].normal.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
-		    1, &imageRange);
-		transitionImageLayout(mrtFramebuffersRef[i].normal.image.image, mrtFramebuffersRef[i].normal.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, mrtCommandBuffers[i]);
-
-		// albedo
-		transitionImageLayout(mrtFramebuffersRef[i].albedo.image.image, swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mrtCommandBuffers[i]);
-		vkCmdClearColorImage(mrtCommandBuffers[i], mrtFramebuffersRef[i].albedo.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
-		    1, &imageRange);
-		transitionImageLayout(mrtFramebuffersRef[i].albedo.image.image, mrtFramebuffersRef[i].albedo.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, mrtCommandBuffers[i]);
-
-		// pbr/Specular
-		transitionImageLayout(mrtFramebuffersRef[i].pbrSpecular.image.image, swapChainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mrtCommandBuffers[i]);
-		vkCmdClearColorImage(mrtCommandBuffers[i], mrtFramebuffersRef[i].pbrSpecular.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cClearColor,
-		    1, &imageRange);
-		transitionImageLayout(mrtFramebuffersRef[i].pbrSpecular.image.image, mrtFramebuffersRef[i].pbrSpecular.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, mrtCommandBuffers[i]);
-
-
-		transitionImageLayout(mrtFramebuffersRef[i].depth.image.image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mrtCommandBuffers[i]);
-		vkCmdClearDepthStencilImage(mrtCommandBuffers[i], mrtFramebuffersRef[i].depth.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    &cDepthColor, 1, &depthRange);
-		transitionImageLayout(mrtFramebuffersRef[i].depth.image.image, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, mrtCommandBuffers[i]);
 
 		VkRenderPassBeginInfo renderPassInfo {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
