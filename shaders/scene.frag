@@ -194,7 +194,7 @@ void main() {
 		for (int i = 0; i < ubo.numberOfLights; ++i) {
 			lo += blinnPhong(pos, N, V, diffColor, specColor, i);
 		}
-		vec3 color = vec3(0.03) * texture(diffuse, fs_in.uv).rgb + lo;
+		vec3 color = vec3(0.03) * diffColor + lo;
 
 		color = vec3(1.0) - exp(-color * ubo.exposure);
 		color = pow(color, vec3(1.0 / ubo.gamma));

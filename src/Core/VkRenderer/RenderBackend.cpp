@@ -71,7 +71,10 @@ void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withVali
 
 void RenderBackend::draw(double deltaT)
 {
-	vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, uint64_t(5e+9));
+	if (vkWaitForFences(pVulkanDevice, 1, &inFlightFences[frameCounter], VK_TRUE, uint64_t(5e+9)) != VK_SUCCESS) {
+		std::cout << "frame fence not ready: " << frameCounter << std::endl;
+		return;
+	}
 	vkResetFences(pVulkanDevice, 1, &inFlightFences[frameCounter]);
 
 	uint32_t imageIndex;
@@ -224,25 +227,31 @@ void RenderBackend::draw(double deltaT)
 			renderInfo.pCommandBuffers = &mrtCommandBuffers[imageIndex];
 
 			if (computeEnabled) {
-				vkWaitForFences(pVulkanDevice, 1, &compute.fences[imageIndex], VK_TRUE, uint64_t(5e+9));
-				vkResetFences(pVulkanDevice, 1, &compute.fences[imageIndex]);
+				if (vkWaitForFences(pVulkanDevice, 1, &compute.fences[frameCounter], VK_TRUE, uint64_t(5e+14)) != VK_SUCCESS) {
+					std::cout << "compute fence not ready: " << imageIndex << std::endl;
+					return;
+				}
+				vkResetFences(pVulkanDevice, 1, &compute.fences[frameCounter]);
 
 				VkSubmitInfo computeInfo = {};
 				computeInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 				computeInfo.commandBufferCount = 1;
 				computeInfo.pCommandBuffers = &compute.cmdBuffers[imageIndex];
 				computeInfo.signalSemaphoreCount = 1;
-				computeInfo.pSignalSemaphores = &compute.semaphores[imageIndex];
+				computeInfo.pSignalSemaphores = &compute.semaphores[frameCounter];
 
-				VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr), "Error occured during compute pass");
+				//VK_THROW_ON_ERROR(vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr), "Error occured during compute pass");
+				if (vkQueueSubmit(compute.queue, 1, &computeInfo, nullptr) != VK_SUCCESS) {
+					std::cout << "Error occured during compute pass with idx" << imageIndex << std::endl;
+				}
 
-				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[imageIndex] };
+				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter], compute.semaphores[frameCounter] };
 				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 				renderInfo.waitSemaphoreCount = 2;
 				renderInfo.pWaitSemaphores = waitSemaphores;
 				renderInfo.pWaitDstStageMask = waitStages;
 
-				VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fences[imageIndex]),
+				VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &renderInfo, compute.fences[frameCounter]),
 				    "Error occured during rendering pass");
 			} else {
 				VkSemaphore waitSemaphores[] = { semImageAvailable[frameCounter] };
@@ -337,9 +346,8 @@ void RenderBackend::draw(double deltaT)
 	}
 	// TODO: wait for the render to finish here until i figure out the issue with laggy mouse cursor when using tripple
 	// buffering
-	//vkDeviceWaitIdle(pVulkanDevice);
+	vkDeviceWaitIdle(pVulkanDevice);
 }
-
 void RenderBackend::updateUiData(GUI::FrameData uiData)
 {
 	uiData.drawCount = drawCount;
@@ -451,18 +459,18 @@ void RenderBackend::cleanup()
 	screenQuadBuffer.destroy(true);
 	delete (screenQuadMemory);
 
-	if (pIndirectCommandsBuffer.buffer)
+	if (pIndirectCommandsBuffer.buffer) {
 		pIndirectCommandsBuffer.destroy(true);
-	if (pIndirectDrawCountBuffer.buffer)
+		delete (ppIndirectCommandMemory);
+	}
+	if (pIndirectDrawCountBuffer.buffer) {
 		pIndirectDrawCountBuffer.destroy(true);
+		delete (ppIndirectDrawCountMemory);
+	}
 	if (pInstanceBuffer.buffer)
 		pInstanceBuffer.destroy(true);
 	if (ppDrawMemory)
 		delete (ppDrawMemory);
-	if (ppIndirectCommandMemory)
-		delete (ppIndirectCommandMemory);
-	if (ppIndirectDrawCountMemory)
-		delete (ppIndirectDrawCountMemory);
 	if (ppInstanceMemory)
 		delete (ppInstanceMemory);
 
@@ -724,6 +732,12 @@ void RenderBackend::createComputePipeline()
 
 void RenderBackend::recordComputeCmdBuffers()
 {
+	auto workGroupSize = 16u;
+	auto workGroupCount = pScene ? pScene->objectCount() >= workGroupSize ? pScene->objectCount() / workGroupSize : 1u : 0u;
+	if (pScene && pScene->objectCount() > workGroupSize && pScene->objectCount() % workGroupSize > 0) {
+		workGroupCount++;
+	}
+
 	if (pScene && pScene->objectCount() > 0) {
 		vkExt::SharedMemory* stagingMem = new vkExt::SharedMemory();
 		vkExt::Buffer staging;
@@ -767,18 +781,22 @@ void RenderBackend::recordComputeCmdBuffers()
 			pIndirectCommandsBuffer.destroy(true);
 			delete (ppIndirectCommandMemory);
 		}
-		ppIndirectCommandMemory = new vkExt::SharedMemory();
-		VkDeviceSize idcSize = meshData.size() * sizeof(VkDrawIndexedIndirectCommand);
-		createBuffer(idcSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, pIndirectCommandsBuffer, ppIndirectCommandMemory);
-		indirectCommandsSize = meshData.size();
 
 		if (pIndirectDrawCountBuffer.buffer) {
 			pIndirectDrawCountBuffer.destroy(true);
 			delete (ppIndirectDrawCountMemory);
 		}
+
+		VkDeviceSize idcSize = /*meshData.size()*/ workGroupCount * workGroupSize * sizeof(VkDrawIndexedIndirectCommand);
+		VkDeviceSize statSize = sizeof(uint32_t);
+
+		ppIndirectCommandMemory = new vkExt::SharedMemory();
+		createBuffer(idcSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, pIndirectCommandsBuffer, ppIndirectCommandMemory);
+
 		ppIndirectDrawCountMemory = new vkExt::SharedMemory();
-		idcSize = sizeof(uint32_t);
 		createBuffer(idcSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pIndirectDrawCountBuffer, ppIndirectDrawCountMemory);
+
+		indirectCommandsSize = meshData.size();
 
 		std::array<VkWriteDescriptorSet, 4> writes = {
 			vk::init::writeDescriptorSet(compute.descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0,
@@ -793,6 +811,7 @@ void RenderBackend::recordComputeCmdBuffers()
 
 		vkUpdateDescriptorSets(pVulkanDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 	}
+
 	for (auto& cmdBuff : compute.cmdBuffers) {
 		auto cmdBuffInfo = vk::init::commandBufferBeginInfo();
 		VK_THROW_ON_ERROR(vkBeginCommandBuffer(cmdBuff, &cmdBuffInfo), "Unable to create Compute CMD Buffer");
@@ -810,11 +829,6 @@ void RenderBackend::recordComputeCmdBuffers()
 
 			vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
 			vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descSet, 0, 0);
-
-			auto workGroupSize = 16u;
-			auto workGroupCount = pScene->objectCount() >= workGroupSize ? pScene->objectCount() / workGroupSize : 1u;
-			if (pScene->objectCount() > workGroupSize && pScene->objectCount() % workGroupSize > 0)
-				workGroupCount++;
 
 			vkCmdDispatch(cmdBuff, workGroupCount, 1, 1);
 
@@ -1030,7 +1044,7 @@ void RenderBackend::recordDrawCmdBuffers()
 		renderPassInfo.renderArea.extent = mrtFramebuffersRef[i].extent;
 
 		vkCmdBeginRenderPass(mrtCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		
+
 		vkCmdBindPipeline(mrtCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
 		    pGraphicsPipeline->getMRTPipelinePtr());
 		if (pDrawBuffer.buffer) {
