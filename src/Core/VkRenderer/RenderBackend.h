@@ -110,7 +110,7 @@ private:
 	std::shared_ptr<DeferredDraw> pGraphicsPipeline;
 
 	ComputePipeline compute;
-	bool computeEnabled = true;
+	bool computeEnabled = false;
 	bool cullCPU = false;
 
 	VkQueue pGraphicsQueue;

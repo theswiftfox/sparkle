@@ -8,6 +8,8 @@ struct PS_OUTPUT {
 	[[vk::location(0)]] float4 color : SV_Target;
 };
 
+#define MASK 0x0000FFFF
+
 #define SPARKLE_SHADER_LIMIT_LIGHTS 1000
 
 #define SPARKLE_MAT_NORMAL_MAP 0x010
@@ -33,7 +35,8 @@ struct Light {
 	Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
 };
 
-const float PI = 3.14159265359;
+static const float PI = 3.14159265359;
+static const float Epsilon = 0.001;
 
 float3 blinnPhong(float3 fragPos, float3 N, float3 V, float3 diffColor, float3 specColor, uint lightnr)
 {
@@ -97,32 +100,38 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 	L = normalize(L);
 	float3 H = normalize(V + L);
 
-	float dotNV = clamp(dot(N, V), 0.0, 1.0);
-	float dotNL = clamp(dot(N, L), 0.0, 1.0);
-	float dotNH = clamp(dot(N, H), 0.0, 1.0);
-	float dotHV = clamp(dot(L, H), 0.0, 1.0);
+	//float dotNV = clamp(dot(N, V), 0.0, 1.0);
+	//float dotNL = clamp(dot(N, L), 0.0, 1.0);
+	//float dotNH = clamp(dot(N, H), 0.0, 1.0);
+	//float dotHV = clamp(dot(L, H), 0.0, 1.0);
+	float dotNV = max(dot(N, V), 0.0);
+	float dotNL = max(dot(N, L), 0.0);
+	float dotNH = max(dot(N, H), 0.0);
+	float dotHV = max(dot(H, V), 0.0);
 
-	float3 color = float3(0.0);
+	radiance *= dotNL;
 
-	if (dotNL > 0.0 && dotNV > 0.0) {
+	float3 color = 0.0;
+
+	//if (dotNL > 0.0 && dotNV > 0.0) {
 		// D = Normal distribution
 		float D = NDF(dotNH, roughness);
 		// G = Geometric shadowing term (Microfacets shadowing)
 		float G = SchlickSmithGGX(dotNL, dotNV, roughness);
 		// F = Fresnel factor
-		float3 F = FresnelSchlick(dotNV, F0);
-
+		float3 F = FresnelSchlick(dotHV, F0);
+		
 		float3 nom = D * G * F;
-		float denom = 4.0 * dotNV * dotNL;
+		float denom = max(4.0 * dotNV * dotNL, Epsilon);
 		float3 spec = nom / denom;
 
 		// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
 		// => diffuse component (kD) = 1.0 - kS.
-		float3 kD = (float3(1.0) - F);
+		float3 kD = (float3(1.0, 1.0, 1.0) - F);
 		// only non metals have diffuse lightning -> linear blend with inverse metalness
 		kD *= 1.0 - metallic;
-		color += (kD * albedo / PI + spec) * radiance * dotNL;
-	}
+		color += (kD * albedo / PI + spec) * radiance;
+//	}
 
 	return color;
 }
@@ -143,29 +152,38 @@ PS_OUTPUT main(in PS_INPUT input)
 	float4 pos = positionTex.Sample(textureSampler, input.uv);
 	float4 normal = normalsTex.Sample(textureSampler, input.uv);
 
-	float4 albedoMR = albedoTex.Sample(textureSampler, input.uv);
+	float4 albedo = albedoTex.Sample(textureSampler, input.uv);
+	float4 specularPbr = pbrSpecularTex.Sample(textureSampler, input.uv);
 
-	/*uint lower = albedoMR.r & 0x0000FFFF;
-	uint higher = albedoMR.r >> 16;
-	float r = f16tof32(higher);
-	float g = f16tof32(lower);
+	float3 color = float3(0.0, 0.0, 0.0);
 
-	lower = albedoMR.g & 0x0000FFFF;
-	higher = albedoMR.g >> 16;
-	float b = f16tof32(higher);
-	float a = f16tof32(lower);
+	float3 V = normalize(cameraPos.rgb - pos.rgb);
+	float3 N = normalize(normal.rgb);
 
-	float4 color = float4(r, g, b, a);
-	*/
-	output.color = albedoMR;
+	if (specularPbr.a < 1.0) { // use pbr rendering TODO: use a better switch instead of alpha value
+		float metallic = specularPbr.r;
+		float roughness = specularPbr.g;
+
+		float3 lo = float3(0.0, 0.0, 0.0);
+		float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metallic);
+
+		for (uint i = 0; i < numberOfLights; i++) {
+			lo += BRDF(V, N, pos.rgb, albedo.rgb, F0, lights[i], metallic, roughness);
+		}
+		//color = float3(0.03, 0.03, 0.03) * albedo + lo;
+		color = lo;
+	} else {
+		float3 lo = float3(0.0, 0.0, 0.0);
+		for (uint i = 0; i < numberOfLights; i++) {
+			lo += blinnPhong(pos.rgb, N, V, albedo, specularPbr.rgb, i);
+		}
+		color = float3(0.03, 0.03, 0.03) * albedo + lo;
+	}
+
+	color = float3(1.0, 1.0, 1.0) - exp(-color * exposure);
+	float gammaDiv = 1.0 / gamma;
+	color = pow(color, float3(gammaDiv, gammaDiv, gammaDiv));
+	output.color = float4(color, albedo.a);
+
 	return output;
-
-	//if (albedoMR.a == 0) { // pbr
-	//	float roughness = f16tof32(albedoMR.b);
-	//	float metallic = f16tof32(albedoMR.b >> 8);
-
-	//} else { // blinn phong fallback
-	//}
-
-	//return output;
 }
