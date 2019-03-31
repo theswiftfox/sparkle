@@ -1,6 +1,6 @@
 # Sparkle-Engine  
 
-Vulkan based rendering engine for Windows and Linux 
+Vulkan based deferred rendering engine for Windows and Linux 
 
 ## Planned
 * Integrate Logger library to fix the current logging mess  
