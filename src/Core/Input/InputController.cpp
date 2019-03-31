@@ -10,6 +10,8 @@
 #endif
 #endif
 
+#include <cmath>
+
 #include <GLFW/glfw3native.h>
 #include <imgui/imgui.h>
 
@@ -20,7 +22,8 @@ void InputController::glfwCallback(GLFWwindow* window, int button, int action, i
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (action == GLFW_PRESS) {
             isTurning = true;
-            glfwSetCursorPos(window, 0, 0);
+			glfwGetCursorPos(window, &last_x, &last_y);
+            //glfwSetCursorPos(window, 0, 0);
         } else if (action == GLFW_RELEASE) {
             isTurning = false;
         }
@@ -60,8 +63,12 @@ void InputController::update(float deltaT)
     if (isTurning) {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
-        camera->setAngle(static_cast<float>(x), -static_cast<float>(y));
-        glfwSetCursorPos(window, 0, 0);
+		double delta_x = last_x - x;
+		double delta_y = last_y - y;
+		last_x = x;
+		last_y = y;
+		// TODO: settings to inverse x and y direction of mouse movement -> multiply deltax or deltay by -1 depending on inverse settings
+        camera->setAngle(-static_cast<float>(delta_x), static_cast<float>(delta_y));
     }
 
     // keyboard

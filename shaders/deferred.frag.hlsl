@@ -98,7 +98,7 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 	float3 radiance = light.color.rgb * attenuation;
 
 	L = normalize(L);
-	float3 H = normalize(V + L);
+	float3 H = normalize(L + V);
 
 	//float dotNV = clamp(dot(N, V), 0.0, 1.0);
 	//float dotNL = clamp(dot(N, L), 0.0, 1.0);
@@ -113,24 +113,30 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 
 	float3 color = 0.0;
 
-	//if (dotNL > 0.0 && dotNV > 0.0) {
+//	if (dotNL > 0.0/* && dotNV > 0.0*/) {
 		// D = Normal distribution
 		float D = NDF(dotNH, roughness);
 		// G = Geometric shadowing term (Microfacets shadowing)
 		float G = SchlickSmithGGX(dotNL, dotNV, roughness);
 		// F = Fresnel factor
 		float3 F = FresnelSchlick(dotHV, F0);
-		
-		float3 nom = D * G * F;
-		float denom = max(4.0 * dotNV * dotNL, Epsilon);
-		float3 spec = nom / denom;
+
+		float3 kD = lerp(float3(1, 1, 1) - F, float3(0, 0, 0), metallic);
+		float3 diffuse = kD * albedo;
+		float3 specular = (F * D * G) / max(Epsilon, 4.0 * dotNL * dotNV);
+
+		color += (diffuse + specular) * radiance;
+
+		//float3 nom = D * G * F;
+		//float denom = max(4.0 * dotNV * dotNL, Epsilon);
+		//float3 spec = nom / denom;
 
 		// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
 		// => diffuse component (kD) = 1.0 - kS.
-		float3 kD = (float3(1.0, 1.0, 1.0) - F);
+		//float3 kD = (float3(1.0, 1.0, 1.0) - F);
 		// only non metals have diffuse lightning -> linear blend with inverse metalness
-		kD *= 1.0 - metallic;
-		color += (kD * albedo / PI + spec) * radiance;
+		//kD *= 1.0 - metallic;
+		//color += (kD * albedo / PI + spec) * radiance;
 //	}
 
 	return color;
@@ -150,21 +156,21 @@ PS_OUTPUT main(in PS_INPUT input)
 	};
 	// unpack
 	float4 pos = positionTex.Sample(textureSampler, input.uv);
-	float4 normal = normalsTex.Sample(textureSampler, input.uv);
+	float3 normal = normalsTex.Sample(textureSampler, input.uv).rgb * 2.0 - 1.0;
 
 	float4 albedo = albedoTex.Sample(textureSampler, input.uv);
 	float4 specularPbr = pbrSpecularTex.Sample(textureSampler, input.uv);
 
-	float3 color = float3(0.0, 0.0, 0.0);
+	float3 color = 0.0;
 
 	float3 V = normalize(cameraPos.rgb - pos.rgb);
-	float3 N = normalize(normal.rgb);
+	float3 N = normalize(normal);
 
 	if (specularPbr.a < 1.0) { // use pbr rendering TODO: use a better switch instead of alpha value
 		float metallic = specularPbr.r;
 		float roughness = specularPbr.g;
 
-		float3 lo = float3(0.0, 0.0, 0.0);
+		float3 lo = 0.0;
 		float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metallic);
 
 		for (uint i = 0; i < numberOfLights; i++) {

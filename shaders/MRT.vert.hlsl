@@ -31,9 +31,9 @@ VS_OUTPUT main(in VS_INPUT input, out float4 vtxPos : SV_Position) {
 	float4 worldPos = mul(modelMat, float4(input.position, 1.0));
 	output.posWorld = worldPos.xyz;
 
-	//float3x3 normalMat = transpose(inverse(float3x3(model)));
-	output.normal = mul(normalMat, normalize(float4(input.normal, 1.0))).xyz;
-	output.tangent = mul(normalMat, normalize(float4(input.tangent, 1.0))).xyz;
+	float3x3 mNormal = float3x3(normalMat);
+	output.normal = mul(mNormal, normalize(input.normal));
+	output.tangent = mul(mNormal, normalize(input.tangent));
 	output.bitangent = input.bitangent;
 	output.uv = input.uv;
 	output.uv.t = 1.0 - output.uv.t;

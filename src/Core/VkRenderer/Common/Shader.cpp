@@ -157,7 +157,7 @@ void MRTShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::s
 		const auto modelMat = meshes[i]->accumModel();
 		const auto iUbo = (InstancedUniformBufferObject*)((uint64_t)dynamicUboData + i * dUboAlignment);
 		iUbo->model = glm::mat4(modelMat);
-		iUbo->normal = glm::transpose(glm::inverse(modelMat));
+		iUbo->normal = glm::mat4(glm::transpose(glm::inverse(glm::mat3(modelMat))));
 	}
 	pDynamicBuffer.copyTo(dynamicUboData, dynamicUboDataSize);
 	pDynamicBuffer.flush();
