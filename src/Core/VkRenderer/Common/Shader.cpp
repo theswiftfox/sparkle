@@ -27,10 +27,10 @@ void _alignedFree(void* data)
 
 using namespace Sparkle::Shaders;
 
-MRTShaderProgram::MRTShaderProgram(const std::vector<ShaderSource>& shaderSources)
+MRTShaderProgram::MRTShaderProgram(const std::vector<ShaderSource>& shaderSources, size_t bufferCount)
 {
-	pUniformBufferMemory = new vkExt::SharedMemory();
-	pDynamicBufferMemory = new vkExt::SharedMemory();
+	uniformBuffers.resize(bufferCount);
+	dynamicBufferMemory = new vkExt::SharedMemory();
 	objectCount = 0;
 
 	for (const auto& shader : shaderSources) {
@@ -68,31 +68,39 @@ MRTShaderProgram::MRTShaderProgram(const std::vector<ShaderSource>& shaderSource
 void MRTShaderProgram::cleanup()
 {
 	shaderModules.cleanup();
-	pUniformBuffer.destroy(true);
-	if (pUniformBufferMemory) {
-		delete (pUniformBufferMemory);
+	for (auto ub : uniformBuffers) {
+		ub.destroy(true);
+	}
+	uniformBuffers.clear();
+	
+	for (auto ubM : uniformBufferMemory) {
+		delete(ubM);
+	}
+	uniformBufferMemory.clear();
+
+	if (dynamicBuffer.buffer) {
+		dynamicBuffer.destroy(true);
 	}
 
-	if (pDynamicBuffer.buffer) {
-		pDynamicBuffer.destroy(true);
-	}
-	if (pDynamicBufferMemory) {
-		delete (pDynamicBufferMemory);
+	if (dynamicBufferMemory) {
+		delete(dynamicBufferMemory);
 	}
 }
 
-void MRTShaderProgram::updateUniformBufferObject(const UniformBufferObject& ubo)
+void MRTShaderProgram::updateUniformBufferObject(const UniformBufferObject& ubo, size_t index)
 {
-	pUniformBuffer.map();
-	pUniformBuffer.copyTo(&ubo, sizeof(ubo));
-	pUniformBuffer.unmap();
+	auto& ub = uniformBuffers[index];
+	ub.map();
+	ub.copyTo(&ubo, sizeof(ubo));
+	ub.unmap();
 }
 
-void DeferredShaderProgram::updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo)
+void DeferredShaderProgram::updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo, size_t index)
 {
-	uniformBuffer.map();
-	uniformBuffer.copyTo(&ubo, sizeof(ubo));
-	uniformBuffer.unmap();
+	auto& ub = uniformBuffers[index];
+	ub.map();
+	ub.copyTo(&ubo, sizeof(ubo));
+	ub.unmap();
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> MRTShaderProgram::getShaderStages() const
@@ -113,15 +121,18 @@ void MRTShaderProgram::createUniformBuffer()
 		uboSize = (uboSize + alignment - 1) & ~(alignment - 1);
 	}
 	const auto bufferSize = uboSize;
-	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pUniformBuffer, pUniformBufferMemory);
+	for (auto& ub : uniformBuffers) {
+		uniformBufferMemory.push_back(new vkExt::SharedMemory());
+		renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, ub, *uniformBufferMemory.rbegin());
+	}
 }
 
 void MRTShaderProgram::createDynamicBuffer(VkDeviceSize size)
 {
 	const auto& renderer = Sparkle::App::getHandle().getRenderBackend();
 
-	if (pDynamicBuffer.buffer) {
-		pDynamicBuffer.destroy(true);
+	if (dynamicBuffer.buffer) {
+		dynamicBuffer.destroy(true);
 
 		_alignedFree(dynamicUboData);
 	}
@@ -140,9 +151,9 @@ void MRTShaderProgram::createDynamicBuffer(VkDeviceSize size)
 	dynamicUboDataSize = objectCount > 0 ? objectCount * dUboAlignment : dUboAlignment;
 	dynamicUboData = (InstancedUniformBufferObject*)_alignedAlloc(dynamicUboDataSize, dUboAlignment);
 
-	renderer->createBuffer(dynamicUboDataSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pDynamicBuffer, pDynamicBufferMemory);
+	renderer->createBuffer(dynamicUboDataSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dynamicBuffer, dynamicBufferMemory);
 
-	pDynamicBuffer.map();
+	dynamicBuffer.map();
 
 	dynamicBufferDirty = true;
 	// getDescriptorInfos();
@@ -150,23 +161,23 @@ void MRTShaderProgram::createDynamicBuffer(VkDeviceSize size)
 
 void MRTShaderProgram::updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Sparkle::Geometry::Node>>& meshes)
 {
-	if (!(pDynamicBuffer.buffer) || meshes.size() * dUboAlignment > dynamicUboDataSize) {
+	if (!(dynamicBuffer.buffer) || meshes.size() * dUboAlignment > dynamicUboDataSize) {
 		createDynamicBuffer(meshes.size());
 	}
-	for (auto i = 0; i < meshes.size(); ++i) {
+	for (auto i = 0u; i < meshes.size(); ++i) {
 		const auto modelMat = meshes[i]->accumModel();
-		const auto iUbo = (InstancedUniformBufferObject*)((uint64_t)dynamicUboData + i * dUboAlignment);
+		const auto iUbo = (InstancedUniformBufferObject*)((uint64_t)dynamicUboData + i * (uint64_t)dUboAlignment);
 		iUbo->model = glm::mat4(modelMat);
 		iUbo->normal = glm::mat4(glm::transpose(glm::inverse(glm::mat3(modelMat))));
 	}
-	pDynamicBuffer.copyTo(dynamicUboData, dynamicUboDataSize);
-	pDynamicBuffer.flush();
+	dynamicBuffer.copyTo(dynamicUboData, dynamicUboDataSize);
+	dynamicBuffer.flush();
 }
 
-VkDescriptorBufferInfo MRTShaderProgram::getDescriptorInfos() const
+VkDescriptorBufferInfo MRTShaderProgram::getDescriptorInfos(size_t index) const
 {
 	const VkDescriptorBufferInfo uboModel = {
-		pUniformBuffer.buffer,
+		uniformBuffers[index].buffer,
 		0,
 		sizeof(UniformBufferObject)
 	};
@@ -178,9 +189,9 @@ VkDescriptorBufferInfo MRTShaderProgram::getDescriptorInfos() const
 *	Deferred Shader Program
 */
 
-DeferredShaderProgram::DeferredShaderProgram(const std::vector<ShaderSource>& shaderSources)
+DeferredShaderProgram::DeferredShaderProgram(const std::vector<ShaderSource>& shaderSources, size_t bufferCount)
 {
-	uniformBufferMemory = new vkExt::SharedMemory();
+	uniformBuffers.resize(bufferCount);
 
 	for (const auto& shader : shaderSources) {
 		switch (shader.type) {
@@ -216,10 +227,18 @@ DeferredShaderProgram::DeferredShaderProgram(const std::vector<ShaderSource>& sh
 void DeferredShaderProgram::cleanup()
 {
 	shaderModules.cleanup();
-	uniformBuffer.destroy(true);
-	if (uniformBufferMemory) {
-		delete (uniformBufferMemory);
+
+	for (auto& ub : uniformBuffers) {
+		if (ub.buffer) {
+			ub.destroy(true);
+		}
 	}
+	uniformBuffers.clear();
+
+	for (auto& ubM : uniformBufferMemory) {
+		delete(ubM);
+	}
+	uniformBufferMemory.clear();
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> DeferredShaderProgram::getShaderStages() const
@@ -240,13 +259,16 @@ void DeferredShaderProgram::createUniformBuffer()
 		uboSize = (uboSize + alignment - 1) & ~(alignment - 1);
 	}
 	const auto bufferSize = uboSize;
-	renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
+	for (auto& ub : uniformBuffers) {
+		uniformBufferMemory.push_back(new vkExt::SharedMemory());
+		renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, ub, *uniformBufferMemory.rbegin());
+	}
 }
 
-VkDescriptorBufferInfo DeferredShaderProgram::getDescriptorInfos() const
+VkDescriptorBufferInfo DeferredShaderProgram::getDescriptorInfos(size_t index) const
 {
 	const VkDescriptorBufferInfo fragUboModel = {
-		uniformBuffer.buffer,
+		uniformBuffers[index].buffer,
 		0,
 		sizeof(FragmentShaderUniforms)
 	};

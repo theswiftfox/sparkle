@@ -37,6 +37,7 @@ struct Light {
 
 static const float PI = 3.14159265359;
 static const float Epsilon = 0.001;
+static const float MinRoughness = 0.04;
 
 float3 blinnPhong(float3 fragPos, float3 N, float3 V, float3 diffColor, float3 specColor, uint lightnr)
 {
@@ -100,14 +101,14 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 	L = normalize(L);
 	float3 H = normalize(L + V);
 
-	//float dotNV = clamp(dot(N, V), 0.0, 1.0);
-	//float dotNL = clamp(dot(N, L), 0.0, 1.0);
-	//float dotNH = clamp(dot(N, H), 0.0, 1.0);
-	//float dotHV = clamp(dot(L, H), 0.0, 1.0);
-	float dotNV = max(dot(N, V), 0.0);
-	float dotNL = max(dot(N, L), 0.0);
-	float dotNH = max(dot(N, H), 0.0);
-	float dotHV = max(dot(H, V), 0.0);
+	float dotNV = clamp(abs(dot(N, V)), 0.001, 1.0);
+	float dotNL = clamp(dot(N, L), 0.001, 1.0);
+	float dotNH = clamp(dot(N, H), 0.0, 1.0);
+	float dotHV = clamp(dot(L, H), 0.0, 1.0);
+	//float dotNV = max(dot(N, V), 0.0);
+	//float dotNL = max(dot(N, L), 0.0);
+	//float dotNH = max(dot(N, H), 0.0);
+	//float dotHV = max(dot(H, V), 0.0);
 
 	radiance *= dotNL;
 
@@ -121,9 +122,10 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 		// F = Fresnel factor
 		float3 F = FresnelSchlick(dotHV, F0);
 
-		float3 kD = lerp(float3(1, 1, 1) - F, float3(0, 0, 0), metallic);
-		float3 diffuse = kD * albedo;
-		float3 specular = (F * D * G) / max(Epsilon, 4.0 * dotNL * dotNV);
+		//float3 kD = lerp(float3(1, 1, 1) - F, float3(0, 0, 0), metallic);
+		float3 kD = 1.0 - F;
+		float3 diffuse = kD * (albedo / PI);
+		float3 specular = (F * G * D) / (4.0 * dotNL * dotNV);
 
 		color += (diffuse + specular) * radiance;
 
@@ -131,10 +133,10 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 		//float denom = max(4.0 * dotNV * dotNL, Epsilon);
 		//float3 spec = nom / denom;
 
-		// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
-		// => diffuse component (kD) = 1.0 - kS.
+		//// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
+		//// => diffuse component (kD) = 1.0 - kS.
 		//float3 kD = (float3(1.0, 1.0, 1.0) - F);
-		// only non metals have diffuse lightning -> linear blend with inverse metalness
+		//// only non metals have diffuse lightning -> linear blend with inverse metalness
 		//kD *= 1.0 - metallic;
 		//color += (kD * albedo / PI + spec) * radiance;
 //	}
@@ -156,6 +158,12 @@ PS_OUTPUT main(in PS_INPUT input)
 	};
 	// unpack
 	float4 pos = positionTex.Sample(textureSampler, input.uv);
+
+	if (length(pos.rgb) == 0.0) {
+		output.color = 0.0;
+		return output;
+	}
+
 	float3 normal = normalsTex.Sample(textureSampler, input.uv).rgb * 2.0 - 1.0;
 
 	float4 albedo = albedoTex.Sample(textureSampler, input.uv);
@@ -168,7 +176,7 @@ PS_OUTPUT main(in PS_INPUT input)
 
 	if (specularPbr.a < 1.0) { // use pbr rendering TODO: use a better switch instead of alpha value
 		float metallic = specularPbr.r;
-		float roughness = specularPbr.g;
+		float roughness = clamp(specularPbr.g, MinRoughness, 1.0);
 
 		float3 lo = 0.0;
 		float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metallic);

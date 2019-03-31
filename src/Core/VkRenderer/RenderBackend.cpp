@@ -226,6 +226,10 @@ void RenderBackend::draw(double deltaT)
 		{
 			renderInfo.pCommandBuffers = &mrtCommandBuffers[imageIndex];
 
+			// TODO: only update on changes?
+			const auto mrtShaderProg = pGraphicsPipeline->getMRTShaderProgramPtr();
+			mrtShaderProg->updateUniformBufferObject(mrtUBO, imageIndex);
+
 			if (computeEnabled) {
 				if (vkWaitForFences(pVulkanDevice, 1, &compute.fences[frameCounter], VK_TRUE, uint64_t(5e+14)) != VK_SUCCESS) {
 					std::cout << "compute fence not ready: " << imageIndex << std::endl;
@@ -283,6 +287,9 @@ void RenderBackend::draw(double deltaT)
 		deferredInfo.pWaitDstStageMask = waitStages;
 		deferredInfo.commandBufferCount = 1;
 		deferredInfo.pCommandBuffers = &deferredCommandBuffers[imageIndex];
+
+		const auto deferredShaderProg = pGraphicsPipeline->getDeferredShaderProgramPtr();
+		deferredShaderProg->updateFragmentShaderUniforms(fragmentUBO, imageIndex);
 
 		VK_THROW_ON_ERROR(vkQueueSubmit(pGraphicsQueue, 1, &deferredInfo, nullptr),
 		    "Error occured during Deferred rendering pass");
@@ -346,7 +353,7 @@ void RenderBackend::draw(double deltaT)
 	}
 	// TODO: wait for the render to finish here until i figure out the issue with laggy mouse cursor when using tripple
 	// buffering
-	vkDeviceWaitIdle(pVulkanDevice);
+	//vkDeviceWaitIdle(pVulkanDevice);
 }
 void RenderBackend::updateUiData(GUI::FrameData uiData)
 {
@@ -356,22 +363,18 @@ void RenderBackend::updateUiData(GUI::FrameData uiData)
 
 void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 {
-	const auto deferredShaderProg = pGraphicsPipeline->getDeferredShaderProgramPtr();
+	const auto mrtShaderProg = pGraphicsPipeline->getMRTShaderProgramPtr();
+
 	fragmentUBO.cameraPos = glm::vec4(pCamera->getPosition(), 0.0f);
 	fragmentUBO.gamma = pUi->getGamma();
 	fragmentUBO.exposure = pUi->getExposure();
-	deferredShaderProg->updateFragmentShaderUniforms(fragmentUBO);
 
 	if (updatedCam || updateGeometry) {
-		const auto mrtShaderProg = pGraphicsPipeline->getMRTShaderProgramPtr();
 
-		Shaders::MRTShaderProgram::UniformBufferObject ubo = {};
-
-		ubo.view = pCamera->getView();
-		ubo.projection = pCamera->getProjection();
+		mrtUBO.view = pCamera->getView();
+		mrtUBO.projection = pCamera->getProjection();
 
 	//	vkDeviceWaitIdle(pVulkanDevice);
-		mrtShaderProg->updateUniformBufferObject(ubo);
 		if (updateGeometry && pScene) {
 			mrtShaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 			updateGeometry = false;
@@ -379,7 +382,7 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 
 		if (computeEnabled) {
 			// frustum
-			auto vp = ubo.projection * ubo.view;
+			auto vp = mrtUBO.projection * mrtUBO.view;
 			compute.ubo.frustumPlanes[0] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0])); // left
 			compute.ubo.frustumPlanes[1] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0])); // right
 			compute.ubo.frustumPlanes[2] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1])); // bottom
@@ -1069,7 +1072,7 @@ void RenderBackend::recordDrawCmdBuffers()
 				std::array<uint32_t, 1> dynamicOffsets = { j * shaderProgram->getDynamicAlignment() };
 
 				std::vector<VkDescriptorSet> sets;
-				sets.push_back(pGraphicsPipeline->getMRTDescriptorSetPtr());
+				sets.push_back(pGraphicsPipeline->getMRTDescriptorSetPtr(i));
 				sets.push_back(mesh->getMaterial()->getDescriptorSet());
 				if (pCamera) {
 					auto pc = mesh->getMaterial()->getUniforms();
@@ -1681,9 +1684,9 @@ VkPresentModeKHR RenderBackend::getBestPresentMode(const std::vector<VkPresentMo
 		if (mode == VK_PRESENT_MODE_MAILBOX_KHR) { // tripple buffering
 			return mode;
 		}
-		// else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may
-		// have tearing 	bestMode = mode;
-		//}
+		else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may have tearing
+			bestMode = mode;
+		}
 	}
 
 	return bestMode;

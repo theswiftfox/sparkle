@@ -194,13 +194,13 @@ void DeferredDraw::initPipelines()
 		Shaders::ShaderSource vtx = { Shaders::ShaderType::Vertex, "shaders/MRT.vert.hlsl.spv" };
 		Shaders::ShaderSource frag = { Shaders::ShaderType::Fragment, "shaders/MRT.frag.hlsl.spv" };
 		std::vector<Shaders::ShaderSource> shaders = { vtx, frag };
-		mrtProgram = std::make_unique<Shaders::MRTShaderProgram>(shaders);
+		mrtProgram = std::make_unique<Shaders::MRTShaderProgram>(shaders, imageViewsRef.size());
 
 		// deferred shaders
 		Shaders::ShaderSource dVtx = { Shaders::ShaderType::Vertex, "shaders/deferred.vert.hlsl.spv" };
 		Shaders::ShaderSource dFrg = { Shaders::ShaderType::Fragment, "shaders/deferred.frag.hlsl.spv" };
 		std::vector<Shaders::ShaderSource> dShaders = { dVtx, dFrg };
-		deferredProgram = std::make_unique<Shaders::DeferredShaderProgram>(dShaders);
+		deferredProgram = std::make_unique<Shaders::DeferredShaderProgram>(dShaders, imageViewsRef.size());
 
 		auto mrtStages = mrtProgram->getShaderStages();
 		auto defStages = deferredProgram->getShaderStages();
@@ -332,22 +332,22 @@ void DeferredDraw::initPipelines()
 		std::array<VkDescriptorPoolSize, 3> sizes = {};
 		sizes[0] = {
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			1 + udefDescSets
+			2u * udefDescSets
 		};
 		sizes[1] = {
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			1
+			1u
 		};
 		sizes[2] = {
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			4 * udefDescSets
+			4u * udefDescSets
 		};
 
 		VkDescriptorPoolCreateInfo info = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 			nullptr,
 			0,
-			1u + udefDescSets,
+			2u * udefDescSets,
 			static_cast<uint32_t>(sizes.size()),
 			sizes.data()
 		};
@@ -363,7 +363,10 @@ void DeferredDraw::initPipelines()
 			layouts
 		};
 
-		VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &mrtDescriptorSet), "MRT DescriptorSet allocation failed!");
+		mrtDescriptorSets.resize(imageViewsRef.size());
+		for (auto& mrtDescSet : mrtDescriptorSets) {
+			VK_THROW_ON_ERROR(vkAllocateDescriptorSets(device, &allocInfo, &mrtDescSet), "MRT DescriptorSet allocation failed!");
+		}
 
 		layouts[0] = deferredDescriptorSetLayout;
 		deferredDescriptorSets.resize(imageViewsRef.size());
@@ -485,41 +488,46 @@ void DeferredDraw::updateDescriptorSets() const
 
 void DeferredDraw::updateMRTDescriptorSets() const
 {
-	const auto uboModel = mrtProgram->getDescriptorInfos();
+	size_t i = 0;
 
-	std::vector<VkWriteDescriptorSet> write;
+	for (auto& descSet : mrtDescriptorSets) {
+		const auto uboModel = mrtProgram->getDescriptorInfos(i);
 
-	const VkWriteDescriptorSet ubo = {
-		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		nullptr,
-		mrtDescriptorSet,
-		0,
-		0,
-		1,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		nullptr,
-		&uboModel,
-		nullptr
-	};
-	write.push_back(ubo);
+		std::vector<VkWriteDescriptorSet> write;
 
-	if (mrtProgram->pDynamicBuffer.buffer) {
-		const VkWriteDescriptorSet dyn = {
+		const VkWriteDescriptorSet ubo = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
-			mrtDescriptorSet,
-			1,
+			descSet,
+			0,
 			0,
 			1,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			nullptr,
-			&mrtProgram->pDynamicBuffer.descriptor,
+			&uboModel,
 			nullptr
 		};
-		write.push_back(dyn);
-	}
+		write.push_back(ubo);
 
-	vkUpdateDescriptorSets(App::getHandle().getRenderBackend()->getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
+		if (mrtProgram->dynamicBuffer.buffer) {
+			const VkWriteDescriptorSet dyn = {
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				descSet,
+				1,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+				nullptr,
+				&mrtProgram->dynamicBuffer.descriptor,
+				nullptr
+			};
+			write.push_back(dyn);
+		}
+
+		vkUpdateDescriptorSets(App::getHandle().getRenderBackend()->getDevice(), static_cast<uint32_t>(write.size()), write.data(), 0, nullptr);
+		++i;
+	}
 }
 void DeferredDraw::updateDeferredDescriptorSets() const
 {
@@ -527,7 +535,7 @@ void DeferredDraw::updateDeferredDescriptorSets() const
 	for (auto& descSet : deferredDescriptorSets) {
 		std::vector<VkWriteDescriptorSet> write;
 
-		auto fragModel = deferredProgram->getDescriptorInfos();
+		auto fragModel = deferredProgram->getDescriptorInfos(i);
 		const VkWriteDescriptorSet frag = {
 			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			nullptr,
