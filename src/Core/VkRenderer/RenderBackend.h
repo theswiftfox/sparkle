@@ -23,6 +23,7 @@
 #include "UI.h"
 #include "SceneLoader.h"
 
+//#define MAX_FRAMES_IN_FLIGHT 2
 #define MAX_FRAMES_IN_FLIGHT 2
 #define DEVICE_NOT_SUITABLE 0
 
@@ -87,6 +88,7 @@ private:
 	std::shared_ptr<GUI> pUi = nullptr;
 
 	Shaders::DeferredShaderProgram::FragmentShaderUniforms fragmentUBO;
+	Shaders::MRTShaderProgram::UniformBufferObject mrtUBO;
 
 	GLFWwindow* pWindow;
 	int viewportWidth, viewportHeight;

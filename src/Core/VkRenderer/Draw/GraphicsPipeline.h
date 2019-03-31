@@ -50,13 +50,13 @@ public:
 	auto getMRTRenderPassPtr() const { return mrtRenderPass; }
 	auto getMRTPipelinePtr() const { return mrtPipeline; }
 	auto getMRTPipelineLayoutPtr() const { return mrtPipelineLayout; }
-	auto getMRTDescriptorSetPtr()
+	auto getMRTDescriptorSetPtr(size_t index)
 	{
 		if (mrtProgram->dynamicBufferDirty) {
 			updateMRTDescriptorSets();
 			mrtProgram->dynamicBufferDirty = false;
 		}
-		return mrtDescriptorSet;
+		return mrtDescriptorSets[index];
 	}
 
 	auto getMRTShaderProgramPtr() const { return mrtProgram; }
@@ -66,7 +66,7 @@ public:
 
 private:
 	VkDescriptorSetLayout mrtDescriptorSetLayout {};
-	VkDescriptorSet mrtDescriptorSet {};
+	std::vector<VkDescriptorSet> mrtDescriptorSets {};
 	//VkDescriptorPool mrtDescriptorPool {};
 
 	VkDescriptorSetLayout deferredDescriptorSetLayout {};

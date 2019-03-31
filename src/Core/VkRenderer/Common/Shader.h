@@ -55,29 +55,29 @@ namespace Shaders {
 			glm::mat4 normal;
 		};
 
-		MRTShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources);
+		MRTShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources, size_t bufferCount);
 
 		void cleanup();
 
-		void updateUniformBufferObject(const UniformBufferObject& ubo);
+		void updateUniformBufferObject(const UniformBufferObject& ubo, size_t index);
 		void updateDynamicUniformBufferObject(const std::vector<std::shared_ptr<Geometry::Node>>& meshes);
 
 		auto getDynamicAlignment() const { return dUboAlignment; }
 
 		std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
 
-		VkDescriptorBufferInfo getDescriptorInfos() const;
+		VkDescriptorBufferInfo getDescriptorInfos(size_t index) const;
 
-		vkExt::Buffer pUniformBuffer;
-		vkExt::Buffer pDynamicBuffer;
+		std::vector<vkExt::Buffer> uniformBuffers;
+		vkExt::Buffer dynamicBuffer;
 
 		bool dynamicBufferDirty = true;
 
 	private:
 		ShaderProgramBase shaderModules;
 
-		vkExt::SharedMemory* pUniformBufferMemory;
-		vkExt::SharedMemory* pDynamicBufferMemory;
+		std::vector<vkExt::SharedMemory*> uniformBufferMemory;
+		vkExt::SharedMemory* dynamicBufferMemory;
 
 		size_t objectCount;
 		uint32_t dUboAlignment {};
@@ -100,20 +100,20 @@ namespace Shaders {
 			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
 		};
 
-		DeferredShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources);
+		DeferredShaderProgram(const std::vector<Shaders::ShaderSource>& shaderSources, size_t bufferCount);
 		void cleanup();
 
-		void updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo);
+		void updateFragmentShaderUniforms(const FragmentShaderUniforms& ubo, size_t index);
 
 		std::vector<VkPipelineShaderStageCreateInfo> getShaderStages() const;
-		VkDescriptorBufferInfo getDescriptorInfos() const;
+		VkDescriptorBufferInfo getDescriptorInfos(size_t index) const;
 
-		vkExt::Buffer uniformBuffer;
+		std::vector<vkExt::Buffer> uniformBuffers;
 
 	private:
 		ShaderProgramBase shaderModules;
 
-		vkExt::SharedMemory* uniformBufferMemory;
+		std::vector<vkExt::SharedMemory*> uniformBufferMemory;
 
 		void createUniformBuffer();
 	};
