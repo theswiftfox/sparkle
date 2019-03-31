@@ -39,6 +39,8 @@ static const float PI = 3.14159265359;
 static const float Epsilon = 0.001;
 static const float MinRoughness = 0.04;
 
+// TODO: change blinn phong to implementation like here https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr_khr.frag
+// e.g. extract metallic and roughness from specular + glossiness workflow
 float3 blinnPhong(float3 fragPos, float3 N, float3 V, float3 diffColor, float3 specColor, uint lightnr)
 {
 	Light l = lights[lightnr];
@@ -105,41 +107,21 @@ float3 BRDF(float3 V, float3 N, float3 position, float3 albedo, float3 F0, Light
 	float dotNL = clamp(dot(N, L), 0.001, 1.0);
 	float dotNH = clamp(dot(N, H), 0.0, 1.0);
 	float dotHV = clamp(dot(L, H), 0.0, 1.0);
-	//float dotNV = max(dot(N, V), 0.0);
-	//float dotNL = max(dot(N, L), 0.0);
-	//float dotNH = max(dot(N, H), 0.0);
-	//float dotHV = max(dot(H, V), 0.0);
 
 	radiance *= dotNL;
 
-	float3 color = 0.0;
+	// D = Normal distribution
+	float D = NDF(dotNH, roughness);
+	// G = Geometric shadowing term (Microfacets shadowing)
+	float G = SchlickSmithGGX(dotNL, dotNV, roughness);
+	// F = Fresnel factor
+	float3 F = FresnelSchlick(dotHV, F0);
 
-//	if (dotNL > 0.0/* && dotNV > 0.0*/) {
-		// D = Normal distribution
-		float D = NDF(dotNH, roughness);
-		// G = Geometric shadowing term (Microfacets shadowing)
-		float G = SchlickSmithGGX(dotNL, dotNV, roughness);
-		// F = Fresnel factor
-		float3 F = FresnelSchlick(dotHV, F0);
+	float3 kD = 1.0 - F;
+	float3 diffuse = kD * (albedo / PI);
+	float3 specular = (F * G * D) / (4.0 * dotNL * dotNV);
 
-		//float3 kD = lerp(float3(1, 1, 1) - F, float3(0, 0, 0), metallic);
-		float3 kD = 1.0 - F;
-		float3 diffuse = kD * (albedo / PI);
-		float3 specular = (F * G * D) / (4.0 * dotNL * dotNV);
-
-		color += (diffuse + specular) * radiance;
-
-		//float3 nom = D * G * F;
-		//float denom = max(4.0 * dotNV * dotNL, Epsilon);
-		//float3 spec = nom / denom;
-
-		//// energy conservation: the diffuse and specular light <= 1.0 (unless the surface emits light)
-		//// => diffuse component (kD) = 1.0 - kS.
-		//float3 kD = (float3(1.0, 1.0, 1.0) - F);
-		//// only non metals have diffuse lightning -> linear blend with inverse metalness
-		//kD *= 1.0 - metallic;
-		//color += (kD * albedo / PI + spec) * radiance;
-//	}
+	float3 color = (diffuse + specular) * radiance;
 
 	return color;
 }
