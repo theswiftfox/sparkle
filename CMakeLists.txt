@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+if(POLICY CMP0076)
+    cmake_policy(SET CMP0076 NEW)
+endif()
 project(sparkle-engine VERSION 0.1 LANGUAGES CXX)
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
@@ -10,8 +13,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 if (NOT MSVC)
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-		add_compile_options("-stdlib=libstdc++")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fms-extensions")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libstdc++ -fms-extensions")
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libstdc++")
 	endif()
 endif()
@@ -58,54 +60,28 @@ find_package(assimp REQUIRED)
 #   message(STATUS "includedir='${dir}'")
 # endforeach()
 
-set(SRC
-	src/Application.cpp
-	src/AppSettings.cpp
-	src/Camera.cpp
-	src/FileReader.cpp
-	src/Geometry.cpp
+
+set(SOURCE_LIST
 	src/main.cpp
-	src/GraphicsPipeline.cpp
-	src/InputController.cpp
-	src/Lights.cpp
-	src/Material.cpp
-	src/RenderBackend.cpp
-	src/Shader.cpp
-	src/Texture.cpp
-	src/UI.cpp
-	src/Util.cpp
 
 	3rdParty/imgui/imgui.cpp
 	3rdParty/imgui/imgui_draw.cpp
-	3rdParty/imgui/imgui_demo.cpp
 	3rdParty/imgui/imgui_widgets.cpp
 )
 
-set(HDR
-	src/include/Application.h
-	src/include/AppSettings.h
-	src/include/Camera.h
-	src/include/FileReader.h
-	src/include/Geometry.h
-	src/include/GraphicsPipeline.h
-	src/include/InputController.h
-	src/include/Lights.h
-	src/include/Material.h
-	src/include/RenderBackend.h
-	src/include/Shader.h
-	src/include/Texture.h
-	src/include/UI.h
-	src/include/Util.h
-	src/include/SparkleChakraCore.h
-)
+# Sparkle Engine
+add_executable(${PROJECT_NAME} ${SOURCE_LIST})
+add_subdirectory(src/Core)
+add_subdirectory(src/Import)
 
 set(SHADERS
-	shaders/scene.frag
-	shaders/scene.vert
 	shaders/ui.frag
 	shaders/ui.vert
 	shaders/deferred.vert.hlsl
 	shaders/deferred.frag.hlsl
+	shaders/MRT.vert.hlsl
+	shaders/MRT.frag.hlsl
+	shaders/cull.comp
 )
 
 set(ASSETS
@@ -114,11 +90,7 @@ set(ASSETS
 	assets/materials/default/spec.png
 )
 
-# Sparkle Engine
-add_executable(${PROJECT_NAME} ${SRC} ${HDR})
-
 # Additional Include Directories
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/src/include")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/gli")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/3rdParty/glm")

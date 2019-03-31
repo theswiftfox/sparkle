@@ -20,3 +20,6 @@
 	path = 3rdParty/ChakraCore
 	url = https://github.com/Microsoft/ChakraCore.git
 	shallow = true
+[submodule "3rdParty/tinygltf"]
+	path = 3rdParty/tinygltf
+	url = https://github.com/syoyo/tinygltf.git
