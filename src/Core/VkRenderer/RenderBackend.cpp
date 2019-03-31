@@ -370,24 +370,26 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 		ubo.view = pCamera->getView();
 		ubo.projection = pCamera->getProjection();
 
-		vkDeviceWaitIdle(pVulkanDevice);
+	//	vkDeviceWaitIdle(pVulkanDevice);
 		mrtShaderProg->updateUniformBufferObject(ubo);
 		if (updateGeometry && pScene) {
 			mrtShaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 			updateGeometry = false;
 		}
 
-		// frustum
-		auto vp = ubo.projection * ubo.view;
-		compute.ubo.frustumPlanes[0] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0])); // left
-		compute.ubo.frustumPlanes[1] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0])); // right
-		compute.ubo.frustumPlanes[2] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1])); // bottom
-		compute.ubo.frustumPlanes[3] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1])); // top
-		compute.ubo.frustumPlanes[4] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2])); // near
-		compute.ubo.frustumPlanes[5] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2])); // far
-		compute.ubo.cameraPos = pCamera->getPosition();
+		if (computeEnabled) {
+			// frustum
+			auto vp = ubo.projection * ubo.view;
+			compute.ubo.frustumPlanes[0] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0])); // left
+			compute.ubo.frustumPlanes[1] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0])); // right
+			compute.ubo.frustumPlanes[2] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1])); // bottom
+			compute.ubo.frustumPlanes[3] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1])); // top
+			compute.ubo.frustumPlanes[4] = /*glm::normalize*/ (glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2])); // near
+			compute.ubo.frustumPlanes[5] = /*glm::normalize*/ (glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2])); // far
+			compute.ubo.cameraPos = pCamera->getPosition();
 
-		compute.updateUBO(compute.ubo);
+			compute.updateUBO(compute.ubo);
+		}
 	}
 }
 

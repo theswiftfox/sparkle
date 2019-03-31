@@ -26,7 +26,6 @@ struct PS_OUTPUT {
 
 [[vk::constant_id(0)]] const float NEAR_PLANE = 0.1f;
 [[vk::constant_id(1)]] const float FAR_PLANE = 1000.0f;
-[[vk::constant_id(2)]] const bool ENABLE_DISCARD = false;
 
 [[vk::push_constant]] cbuffer mat
 {
@@ -55,25 +54,19 @@ float calcLinearDepth(float zval)
 	float4 albedo = albedoTexture.Sample(textureSampler, input.uv);
 	float4 normal;
 	if ((materialFeatures & SPARKLE_MAT_NORMAL_MAP) == SPARKLE_MAT_NORMAL_MAP) {
-		normal = normalTexture.Sample(textureSampler, input.uv);
+		normal = 2.0 * normalTexture.Sample(textureSampler, input.uv) - 1.0;
 	} else {
 		normal = float4(input.normal, 0.0);
 	}
 
-	if (ENABLE_DISCARD == false) {
-		float3 N = normalize(input.normal);
-		float3 B = normalize(input.bitangent);
-		float3 T = normalize(input.tangent);
-		float3x3 TBN = float3x3(T, B, N);
-		float3 n = normal.xyz * 2.0 - float3(1.0);
-		n = mul(normalize(n), TBN);
-		output.normal = float4(n * 0.5 + 0.5, 0.0);
-	} else {
-		output.normal = float4(input.normal * 0.5 + 0.5, 0.0);
-		if (albedo.a < 0.5) {
-			discard;
-		}
-	}
+	float3 N = normalize(input.normal);
+	float3 B = normalize(input.bitangent);
+	float3 T = normalize(input.tangent);
+	float3x3 TBN = float3x3(T, B, N);
+	//float3 n = normal.xyz * 2.0 - float3(1.0);
+	float3 n = mul(normalize(normal.xyz), TBN);
+	output.normal = float4(n * 0.5 + 0.5, 0.0);
+
 
 	// packing - not working, idk. i'm stupid? maybe use clear value of uint32_t?
 	//uint4 chalf = f32tof16(albedo);

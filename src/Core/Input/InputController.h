@@ -27,5 +27,8 @@ private:
     GLFWwindow* window;
     std::vector<bool> mouseWasPressed;
 
+	double last_x = 0.0;
+	double last_y = 0.0;
+
     bool isTurning = false;
 };

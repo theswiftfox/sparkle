@@ -271,7 +271,7 @@ void Import::AssimpLoader::loadFromFile(const std::string& fileName)
 			importer.SetProgressHandler(uiHandle.get());
 			scenePtr = importer.ReadFile(fileName,
 			    // aiProcess_GenNormals |
-			    // aiProcess_CalcTangentSpace |
+			    aiProcess_CalcTangentSpace |
 			    aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
 			        // aiProcess_FlipUVs |
 			        aiProcess_FindDegenerates | aiProcess_SortByPType |
