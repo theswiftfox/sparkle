@@ -1,14 +1,10 @@
 # Sparkle-Engine  
 
-Vulkan based rendering engine. 
+Vulkan based rendering engine for Windows and Linux 
 
 ## Planned
-### Major TODO  
-* Integrate potent Logger library to fix the current logging mess  
-  
-### Other main Tasks  
-* use vulkan compute shader for frustum culling  
-* generate new command buffers in compute shader  
+* Integrate Logger library to fix the current logging mess  
+* Shadowmaps & softshadows
 * integrate Scripting language for main application logic  
 * separate editor and game view  
 
