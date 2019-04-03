@@ -16,9 +16,13 @@ struct PS_OUTPUT {
 #define SPARKLE_MAT_PBR 0x100
 
 [[vk::binding(1, 0)]] Texture2D positionTex;
+[[vk::binding(1, 0)]] SamplerState posSampler;
 [[vk::binding(2, 0)]] Texture2D normalsTex;
+[[vk::binding(2, 0)]] SamplerState normSampler;
 [[vk::binding(3, 0)]] Texture2D albedoTex;
+[[vk::binding(3, 0)]] SamplerState albSampler;
 [[vk::binding(4, 0)]] Texture2D pbrSpecularTex;
+[[vk::binding(4, 0)]] SamplerState pbrSampler;
 
 struct Light {
 	float4 position;
@@ -132,24 +136,18 @@ PS_OUTPUT main(in PS_INPUT input)
 {
 	PS_OUTPUT output;
 
-	SamplerState textureSampler
-	{
-		Filter = MIN_MAG_MIP_LINEAR;
-		AddressU = ClampToEdge;
-		AddressV = ClampToEdge;
-	};
 	// unpack
-	float4 pos = positionTex.Sample(textureSampler, input.uv);
+	float4 pos = positionTex.Sample(posSampler, input.uv);
 
 	if (length(pos.rgb) == 0.0) {
 		output.color = 0.0;
 		return output;
 	}
 
-	float3 normal = normalsTex.Sample(textureSampler, input.uv).rgb * 2.0 - 1.0;
+	float3 normal = normalsTex.Sample(normSampler, input.uv).rgb * 2.0 - 1.0;
 
-	float4 albedo = albedoTex.Sample(textureSampler, input.uv);
-	float4 specularPbr = pbrSpecularTex.Sample(textureSampler, input.uv);
+	float4 albedo = albedoTex.Sample(albSampler, input.uv);
+	float4 specularPbr = pbrSpecularTex.Sample(pbrSampler, input.uv);
 
 	float3 color = 0.0;
 
