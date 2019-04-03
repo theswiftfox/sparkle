@@ -12,17 +12,22 @@ struct PS_INPUT {
 };
 
 struct PS_OUTPUT {
-	[[vk::location(0)]] float4 position;
-	[[vk::location(1)]] float4 normal;
-	[[vk::location(2)]] float4 albedo;
-	[[vk::location(3)]] float4 pbrSpecular;
+	[[vk::location(0)]] float4 position : SV_Target0;
+	[[vk::location(1)]] float4 normal : SV_Target1;
+	[[vk::location(2)]] float4 albedo : SV_Target2;
+	[[vk::location(3)]] float4 pbrSpecular : SV_Target3;
 };
 
 [[vk::binding(0, 1)]] Texture2D albedoTexture;
+[[vk::binding(0, 1)]] SamplerState albSampler;
 [[vk::binding(1, 1)]] Texture2D specularTexture;
+[[vk::binding(1, 1)]] SamplerState specSampler;
 [[vk::binding(2, 1)]] Texture2D normalTexture;
+[[vk::binding(2, 1)]] SamplerState normSampler;
 [[vk::binding(3, 1)]] Texture2D roughnessTexture;
+[[vk::binding(3, 1)]] SamplerState roughSampler;
 [[vk::binding(4, 1)]] Texture2D metallicTexture;
+[[vk::binding(4, 1)]] SamplerState metalSampler;
 
 [[vk::constant_id(0)]] const float NEAR_PLANE = 0.1f;
 [[vk::constant_id(1)]] const float FAR_PLANE = 1000.0f;
@@ -44,17 +49,10 @@ float calcLinearDepth(float zval)
 	PS_OUTPUT output;
 	output.position = float4(input.posWorld, calcLinearDepth(pos.z));
 
-	SamplerState textureSampler
-	{
-		Filter = MIN_MAG_MIP_LINEAR;
-		AddressU = Wrap;
-		AddressV = Wrap;
-	};
-
-	float4 albedo = albedoTexture.Sample(textureSampler, input.uv);
+	float4 albedo = albedoTexture.Sample(albSampler, input.uv);
 	float4 normal;
 	if ((materialFeatures & SPARKLE_MAT_NORMAL_MAP) == SPARKLE_MAT_NORMAL_MAP) {
-		normal = 2.0 * normalTexture.Sample(textureSampler, input.uv) - 1.0;
+		normal = 2.0 * normalTexture.Sample(normSampler, input.uv) - 1.0;
 	} else {
 		normal = float4(input.normal, 0.0);
 	}
@@ -91,11 +89,11 @@ float calcLinearDepth(float zval)
 
 	output.albedo = albedo;
 	if ((materialFeatures & SPARKLE_MAT_PBR) == SPARKLE_MAT_PBR) {
-		float roughness = roughnessTexture.Sample(textureSampler, input.uv).r;
-		float metallic = metallicTexture.Sample(textureSampler, input.uv).r;
+		float roughness = roughnessTexture.Sample(roughSampler, input.uv).r;
+		float metallic = metallicTexture.Sample(metalSampler, input.uv).r;
 		output.pbrSpecular = float4(metallic, roughness, 0.0, 0.0);
 	} else {
-		output.pbrSpecular = specularTexture.Sample(textureSampler, input.uv);
+		output.pbrSpecular = specularTexture.Sample(specSampler, input.uv);
 		output.pbrSpecular.a = 1.0;
 	}
 

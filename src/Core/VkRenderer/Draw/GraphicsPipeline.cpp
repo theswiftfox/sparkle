@@ -328,26 +328,26 @@ void DeferredDraw::initPipelines()
 		layoutInfo.bindingCount = static_cast<uint32_t>(deferredBindings.size());
 		VK_THROW_ON_ERROR(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &deferredDescriptorSetLayout), "DescriptorSetLayout creation failed!");
 
-		auto udefDescSets = static_cast<uint32_t>(imageViewsRef.size());
+		auto bufferSetCount = static_cast<uint32_t>(imageViewsRef.size());
 		std::array<VkDescriptorPoolSize, 3> sizes = {};
 		sizes[0] = {
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			2u * udefDescSets
+			2u * bufferSetCount
 		};
 		sizes[1] = {
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			1u
+			1u * bufferSetCount
 		};
 		sizes[2] = {
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			4u * udefDescSets
+			4u * bufferSetCount
 		};
 
 		VkDescriptorPoolCreateInfo info = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 			nullptr,
 			0,
-			2u * udefDescSets,
+			2u * bufferSetCount,
 			static_cast<uint32_t>(sizes.size()),
 			sizes.data()
 		};
