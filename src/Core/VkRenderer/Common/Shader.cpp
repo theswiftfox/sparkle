@@ -337,7 +337,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderProgramBase::getShaderStages(
 	return stages;
 }
 
-inline VkShaderModule Sparkle::Shaders::createShaderModule(const std::vector<char>& code)
+VkShaderModule Sparkle::Shaders::createShaderModule(const std::vector<char>& code)
 {
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
