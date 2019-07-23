@@ -80,7 +80,7 @@ namespace Geometry {
 
 		std::vector<std::shared_ptr<Node>> getDrawableSceneAsFlatVec();
 
-		void addChild(std::shared_ptr<Node>& child) { children.push_back(child); }
+		void addChild(std::shared_ptr<Node> child) { children.push_back(child); }
 		void setChildren(std::vector<std::shared_ptr<Node>>& nodes)
 		{
 			children = nodes;
