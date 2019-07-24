@@ -1,4 +1,10 @@
-// PBR based pixel shader
+//--------------------------------------------------------------------------------------
+// File: deferred.frag.hlsl
+//
+// This file contains the Pixel Shader to perform lighting calculation in deferred pipeline
+//
+// Copyright (c) Patrick Gantner. All rights reserved.
+//--------------------------------------------------------------------------------------
 
 struct PS_INPUT {
 	[[vk::location(0)]] float2 uv : UV;
@@ -36,6 +42,7 @@ struct Light {
 	uint numberOfLights;
 	float exposure;
 	float gamma;
+	uint useGI;
 	Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
 };
 
@@ -154,7 +161,7 @@ PS_OUTPUT main(in PS_INPUT input)
 	float3 V = normalize(cameraPos.rgb - pos.rgb);
 	float3 N = normalize(normal);
 
-	if (specularPbr.a < 1.0) { // use pbr rendering TODO: use a better switch instead of alpha value
+	if (useGI == 1 && specularPbr.a < 1.0) { // use pbr rendering TODO: use a better switch instead of alpha value
 		float metallic = specularPbr.r;
 		float roughness = clamp(specularPbr.g, MinRoughness, 1.0);
 

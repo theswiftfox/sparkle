@@ -21,7 +21,7 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 		assimpImporter.reset();
 	}
 	auto path = fs::path(filePath);
-	if (path.extension() == ".gltf1") {
+	if (path.extension() == ".gltf") {
 		glTFImporter = std::make_unique<Import::glTFLoader>();
 		glTFImporter->loadFromFile(filePath);
 	} else {
@@ -33,7 +33,7 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 
 std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene() {
 	if (glTFImporter) {
-		return nullptr;
+		return glTFImporter->processGlTF();
 	} else {
 		return assimpImporter->processAssimp();
 	}
@@ -41,8 +41,18 @@ std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene() {
 
 bool Import::SceneLoader::isLoaded() {
 	if (glTFImporter) {
-		return false;
+		return glTFImporter->isLoaded();
 	} else {
 		return assimpImporter->isLoaded();
 	}
+}
+
+Import::ImportProgress Import::SceneLoader::getProgress() const {
+    if (glTFImporter) {
+        return glTFImporter->progress;
+    } else {
+        ImportProgress progress;
+        progress.state = ImportProgress::State::DONE;
+        return progress;
+    }
 }

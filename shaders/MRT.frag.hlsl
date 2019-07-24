@@ -1,7 +1,14 @@
-// Deferred rendering pixel shader
+//--------------------------------------------------------------------------------------
+// File: MRT.frag.hlsl
+//
+// This file contains the Pixel Shader filling the g-Buffer for Deferred Rendering
+//
+// Copyright (c) Patrick Gantner. All rights reserved.
+//--------------------------------------------------------------------------------------
 
 #define SPARKLE_MAT_NORMAL_MAP 0x010
 #define SPARKLE_MAT_PBR 0x100
+#define SPARKLE_MAT_PBR_MR_COMBINED 0x001 // combined metallic roughness tex as in glTF spec
 
 struct PS_INPUT {
 	[[vk::location(0)]] float3 posWorld : POSITION_WORLD;
@@ -89,8 +96,16 @@ float calcLinearDepth(float zval)
 
 	output.albedo = albedo;
 	if ((materialFeatures & SPARKLE_MAT_PBR) == SPARKLE_MAT_PBR) {
-		float roughness = roughnessTexture.Sample(roughSampler, input.uv).r;
-		float metallic = metallicTexture.Sample(metalSampler, input.uv).r;
+	    float roughness;
+	    float metallic;
+	    if (SPARKLE_MAT_PBR_MR_COMBINED) {
+            float4 vals = roughnessTexture.Sample(roughSampler, input.uv);
+            roughness = vals.g;
+            metallic = vals.b;
+	    } else {
+            roughness = roughnessTexture.Sample(roughSampler, input.uv).r;
+            metallic = metallicTexture.Sample(metalSampler, input.uv).r;
+		}
 		output.pbrSpecular = float4(metallic, roughness, 0.0, 0.0);
 	} else {
 		output.pbrSpecular = specularTexture.Sample(specSampler, input.uv);

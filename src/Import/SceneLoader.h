@@ -14,8 +14,10 @@ namespace Import {
 		void loadFromFile(std::string filePath);
 
 		bool isLoaded();
+
 		std::unique_ptr<Geometry::Scene> processScene();
 
+		ImportProgress getProgress() const;
 	private:
 		std::unique_ptr<AssimpLoader> assimpImporter = nullptr;
 		std::unique_ptr<glTFLoader> glTFImporter = nullptr;

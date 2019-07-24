@@ -293,21 +293,29 @@ void GUI::updateFrame(GUI::FrameData frameData)
 
 	// Todo: ImGui windows etc
 
-	if (assimpProgress.isLoading) {
+	if (assimpProgress.isLoading || frameData.progress.state != Import::ImportProgress::State::DONE) {
 		ImGui::SetNextWindowPos(ImVec2(10, 10));
 		int flags = ImGuiWindowFlags_NoTitleBar;
 		flags |= ImGuiWindowFlags_AlwaysAutoResize;
 		flags |= ImGuiWindowFlags_NoMove;
 		ImGui::Begin("Loading", nullptr, flags);
-		if (assimpProgress.value > 0.000001f) {
-			//auto text = "Processing assets: Step " + std::to_string(assimpProgress.currentStep) + "/" + std::to_string(assimpProgress.maxSteps);
-			auto percentage = assimpProgress.value * 100;
-			std::stringstream ss;
-			ss << "Loading assets: " << std::fixed << std::setprecision(1) << percentage << "%";
-			//	ImGui::TextUnformatted(text.c_str());
-			ImGui::TextUnformatted(ss.str().c_str());
+		if (assimpProgress.isLoading) {
+			if (assimpProgress.value > 0.000001f) {
+				//auto text = "Processing assets: Step " + std::to_string(assimpProgress.currentStep) + "/" + std::to_string(assimpProgress.maxSteps);
+				auto percentage = assimpProgress.value * 100;
+				std::stringstream ss;
+				ss << "Loading assets: " << std::fixed << std::setprecision(1) << percentage << "%";
+				//	ImGui::TextUnformatted(text.c_str());
+				ImGui::TextUnformatted(ss.str().c_str());
+			} else {
+				ImGui::TextUnformatted("Loading level file..");
+			}
 		} else {
-			ImGui::TextUnformatted("Loading level file..");
+		    auto percentage = frameData.progress.percent * 100;
+		    std::stringstream ss;
+		    using State = Import::ImportProgress::State;
+		    ss << "Loading " << Import::StatusStr[frameData.progress.state] << ": " << std::fixed << std::setprecision(1) << percentage << "%";
+		    ImGui::TextUnformatted(ss.str().c_str());
 		}
 		ImGui::End();
 	}

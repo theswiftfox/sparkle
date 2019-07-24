@@ -6,6 +6,15 @@
 #include <assimp/texture.h>
 #include <string>
 
+#define TEX_TYPE_NONE 0x0
+#define TEX_TYPE_DIFFUSE 0x1
+#define TEX_TYPE_SPECULAR 0x2
+#define TEX_TYPE_NORMAL 0x3
+#define TEX_TYPE_ROUGHNESS 0x4
+#define TEX_TYPE_METALLIC 0x5
+#define TEX_TYPE_METALLIC_ROUGHNESS 0x6
+#define TEX_TYPE_PLACEHOLDER 0x7
+
 namespace Sparkle {
 class Texture {
 public:
@@ -26,6 +35,8 @@ public:
     const auto path() const { return filePath; }
 
     const auto type() const { return typeID; }
+
+    void changeType(size_t newType) { typeID = newType; }
 
 private:
     std::string filePath;

@@ -96,7 +96,7 @@ namespace Shaders {
 			uint32_t numLights;
 			float exposure = 1.0f;
 			float gamma = 2.2f;
-			float _pad;
+			uint32_t useGI = 1;
 			Lights::Light lights[SPARKLE_SHADER_LIMIT_LIGHTS];
 		};
 

@@ -1,4 +1,5 @@
 #include "GltfLoader.h"
+#include "SceneLoader.h"
 #include "Util.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -16,8 +17,10 @@ void Import::glTFLoader::loadFromFile(std::string filePath)
 	levelLoadFuture = std::async(std::launch::async, [this, filePath]() {
 		tinygltf::TinyGLTF loader;
 		std::string err, warn;
+		progress.state = ImportProgress::State::READING;
+		progress.percent = 0.1f;
 		auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, filePath);
-
+		progress.percent = 0.5f;
 		if (!warn.empty()) {
 			LOGSTDOUT(warn)
 		}
@@ -37,30 +40,141 @@ void Import::glTFLoader::loadFromFile(std::string filePath)
 				rootDirectory = "assets/";
 			}
 		}
+        loadTextures();
+        loadMaterials();
+        loaded = true;
 	});
 }
 
 std::unique_ptr<Geometry::Scene> Import::glTFLoader::processGlTF()
 {
 	levelLoadFuture.get();
+    for (auto& mat : materialCache) {
+        mat->init();
+    }
+	progress.state = ImportProgress::State::MESH;
 	auto scene = std::make_unique<Geometry::Scene>();
-
+	const auto& glTFscene = model.defaultScene > -1 ? model.scenes[model.defaultScene] : model.scenes[0];
+    auto p = 1u;
+    auto mul = 1.0f / (float)glTFscene.nodes.size();
+    for (auto& node : glTFscene.nodes) {
+        progress.percent = p * mul;
+        loadNode(scene->getRootNodePtr(), model.nodes[node]);
+        ++p;
+    }
+    progress.state = ImportProgress::State::DONE;
+    progress.percent = 1.0f;
 	return scene;
 }
 
 void Import::glTFLoader::loadMaterials()
 {
+    progress.state = ImportProgress::State::MATERIALS;
+    auto p = 1u;
+    auto mul = 1.0f / (float)model.materials.size();
+    for (auto& material : model.materials) {
+        progress.percent = p * mul;
+        std::vector<std::shared_ptr<Texture>> textures;
+        textures.push_back(placeholder);
+        if (material.values.find("baseColorTexture") != material.values.end()) {
+            auto idx = material.values["baseColorTexture"].TextureIndex();
+            if (idx < textureCache.size()) {
+                if (textureCache[idx]->type() == TEX_TYPE_NONE) {
+                    textureCache[idx]->changeType(TEX_TYPE_DIFFUSE);
+                }
+                textures.push_back(textureCache[idx]);
+            }
+        }
+        if (material.values.find("metallicRoughnessTexture") != material.values.end()) {
+            auto idx = material.values["metallicRoughnessTexture"].TextureIndex();
+            if (idx < textureCache.size()) {
+                if (textureCache[idx]->type() == TEX_TYPE_NONE) {
+                    textureCache[idx]->changeType(TEX_TYPE_METALLIC_ROUGHNESS);
+                }
+                textures.push_back(textureCache[idx]);
+            }
+        }
+        if (material.values.find("normalTexture") != material.values.end()) {
+            auto idx = material.values["normalTexture"].TextureIndex();
+            if (idx < textureCache.size()) {
+                if (textureCache[idx]->type() == TEX_TYPE_NONE) {
+                    textureCache[idx]->changeType(TEX_TYPE_NORMAL);
+                }
+                textures.push_back(textureCache[idx]);
+            }
+        }
+        if (material.extensions.find("KHR_materials_pbrSpecularGlossiness") != material.extensions.end()) {
+			auto ext = material.extensions.find("KHR_materials_pbrSpecularGlossiness");
+			if (ext->second.Has("specularGlossinessTexture")) {
+                auto idx = ext->second.Get("specularGlossinessTexture").Get("index").Get<int>();
+                if (idx < textureCache.size()) {
+                    if (textureCache[idx]->type() == TEX_TYPE_NONE) {
+                        textureCache[idx]->changeType(TEX_TYPE_SPECULAR);
+                    }
+                    textures.push_back(textureCache[idx]);
+                }
+			}
+			if (ext->second.Has("diffuseTexture")) {
+                auto idx = ext->second.Get("diffuseTexture").Get("index").Get<int>();
+                if (idx < textureCache.size()) {
+                    if (textureCache[idx]->type() == TEX_TYPE_NONE) {
+                        textureCache[idx]->changeType(TEX_TYPE_DIFFUSE);
+                    }
+                    textures.push_back(textureCache[idx]);
+                }
+			}
+		}
+        materialCache.push_back(std::make_shared<Material>(textures, true));
+        ++p;
+    }
 }
 void Import::glTFLoader::loadTextures()
 {
+    // TODO: samplers
+    progress.state = ImportProgress::State::TEXTURES;
+    auto p = 1u;
+    auto mul = 1.0f / (float)model.textures.size();
+    for (auto& tex : model.textures) {
+        progress.percent = p * mul;
+        auto img = model.images[tex.source];
+        if (img.uri.length() > 0) {
+            textureCache.push_back(std::make_shared<Texture>(rootDirectory + img.uri, TEX_TYPE_NONE));
+        } else {
+            unsigned char* imgBuff = nullptr;
+            bool tempBuffer = false;
+            if (img.component == 3) { // convert to rgba
+                auto size = img.width * img.height * 4;
+                imgBuff = new unsigned char[size];
+                auto ptrImgBuff = imgBuff;
+                auto ptrImgData = img.image.data();
+                for (auto i = 0; i < img.width * img.height; ++i) {
+                    for (auto j = 0u; j < 3; ++j) {
+                        ptrImgBuff[j] = ptrImgData[j];
+                    }
+                    ptrImgBuff[3] = 0;
 
+                    ptrImgBuff += 4;
+                    ptrImgData += 3;
+                }
+                tempBuffer = true;
+            } else {
+                imgBuff = img.image.data();
+            }
+            textureCache.push_back(std::make_shared<Texture>(imgBuff, img.width, img.height, 4, TEX_TYPE_NONE));
+            if (tempBuffer) {
+                delete[] imgBuff;
+            }
+        }
+        ++p;
+    }
+    placeholder = std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_PLACEHOLDER);
 }
 void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const tinygltf::Node& node)
 {
-	glm::mat4 modelmat = glm::mat4(1.0f);
+	glm::mat4 modelMat = glm::mat4(1.0f);
 	auto nodeParent = parent;
 	if (node.matrix.size() == 16) {
-		modelmat = glm::make_mat4x4(node.matrix.data());
+		modelMat = glm::make_mat4x4(node.matrix.data());
 	} else {
 		glm::vec3 pos = glm::vec3(0.0f);
 		if (node.translation.size() == 3) {
@@ -75,9 +189,9 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 		if (node.scale.size() == 3) {
 			scale = glm::make_vec3(node.scale.data());
 		}
-		modelmat = glm::mat4(rot);
-		modelmat = glm::translate(modelmat, pos);
-		modelmat = glm::scale(modelmat, scale);
+		modelMat = glm::mat4(rot);
+		modelMat = glm::translate(modelMat, pos);
+		modelMat = glm::scale(modelMat, scale);
 	}
 	if (node.mesh > -1) {
 		const auto mesh = model.meshes[node.mesh];
@@ -92,11 +206,11 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 			glm::vec3 minPos = {};
 			glm::vec3 maxPos = {};
 
-			const float* bufferPos;
-			const float* bufferNorm;
-			const float* bufferUV;
-			const float* bufferTang;
-			const float* bufferBiTang;
+			const float* bufferPos = nullptr;
+            const float* bufferNorm = nullptr;
+            const float* bufferUV = nullptr;
+            const float* bufferTang = nullptr;
+            const float* bufferBiTang = nullptr;
 
 			assert(primitive.attributes.find("POSITION") != primitive.attributes.end()); // Position is required
 			const auto & posAcc = model.accessors[primitive.attributes.find("POSITION")->second];
@@ -145,26 +259,57 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 
 				const void* dataPtr = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 
-				const uint32_t* ptr = nullptr;
 				switch (accessor.componentType) {
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-					ptr = static_cast<const uint32_t*>(dataPtr);
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+					const uint32_t* ptr = static_cast<const uint32_t*>(dataPtr);
 					for (auto idx = 0u; idx < accessor.count; ++idx) {
 						data.indices.push_back(ptr[idx]);
 					}
 					break;
+				}
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+					const uint16_t* ptr = static_cast<const uint16_t*>(dataPtr);
+					for (auto idx = 0u; idx < accessor.count; ++idx) {
+						data.indices.push_back(ptr[idx]);
+					}
+					break;
+				}
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+					const uint8_t* ptr = static_cast<const uint8_t*>(dataPtr);
+					for (auto idx = 0u; idx < accessor.count; ++idx) {
+						data.indices.push_back(ptr[idx]);
+					}
+					break;
+				}
 				default:
 					LOGSTDOUT("Index component type " + std::to_string(accessor.componentType) + " not supported!");
 					return;
-					// todo: other types
 				}
 			}
 			else {
-				// todo?
+				// expect to have an index per vertex?
+				for (auto i = 0u; i < data.vertices.size(); ++i) {
+				    data.indices.push_back(i);
+				}
 			}
+
+			// material:
+			std::shared_ptr<Material> material = nullptr;
+			if (primitive.material > -1) {
+                if (primitive.material < materialCache.size()) {
+                    material = materialCache[primitive.material];
+                } else {
+                    LOGSTDOUT("Material referenced by primitive not found. Is this glTF file valid?");
+                    // TODO: assign default material
+                }
+			} else {
+
+			}
+
+			auto sparkleMesh = std::make_shared<Geometry::Mesh>(data, material, nodeParent, modelMat);
 		}
 	} else {
-		auto sparkleNode = std::make_shared<Geometry::Node>(modelmat, nodeParent);
+		auto sparkleNode = std::make_shared<Geometry::Node>(modelMat, nodeParent);
 		nodeParent->addChild(sparkleNode);
 		nodeParent = sparkleNode;
 	}

@@ -88,7 +88,11 @@ void App::mainLoop()
 
         glfwPollEvents();
 
-        if (pSceneLoader->isLoaded() && !pScene) {
+        if (!pSceneLoader->isLoaded()) {
+            frameData.progress = pSceneLoader->getProgress();
+        }
+        else if (!pScene) {
+            frameData.progress = pSceneLoader->getProgress();
             pScene = pSceneLoader->processScene();
             pRenderer->updateScenePtr(pScene);
         }

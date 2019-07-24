@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "Texture.h"
+#include "SceneLoader.h"
 #include <assimp/ProgressHandler.hpp>
 
 namespace Sparkle {
@@ -20,6 +21,7 @@ public:
     struct FrameData {
         size_t fps;
 		int drawCount;
+        Import::ImportProgress progress;
     };
     struct ProgressData {
         bool isLoading;

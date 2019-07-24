@@ -1,4 +1,10 @@
-// Fullscreen Quad VTX Shader
+//--------------------------------------------------------------------------------------
+// File: deferred.vert.hlsl
+//
+// This file contains the vertex Shader rendering a screen quad
+//
+// Copyright (c) Patrick Gantner. All rights reserved.
+//--------------------------------------------------------------------------------------
 
 struct VS_OUTPUT {
 	[[vk::location(0)]] float2 uv : UV;

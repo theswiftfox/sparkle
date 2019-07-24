@@ -19,9 +19,9 @@
 #include "ComputePipeline.h"
 #include "Geometry.h"
 #include "GraphicsPipeline.h"
+#include "SceneLoader.h"
 #include "SparkleTypes.h"
 #include "UI.h"
-#include "SceneLoader.h"
 
 //#define MAX_FRAMES_IN_FLIGHT 2
 #define MAX_FRAMES_IN_FLIGHT 2

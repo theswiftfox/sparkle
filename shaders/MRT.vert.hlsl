@@ -1,4 +1,10 @@
-// Deferred Rendering vertex shader
+//--------------------------------------------------------------------------------------
+// File: cull.comp.hlsl
+//
+// This file contains the Vertex Shader for the scene geometry
+//
+// Copyright (c) Patrick Gantner. All rights reserved.
+//--------------------------------------------------------------------------------------
 
 struct VS_INPUT {
 	[[vk::location(0)]] float3 position : POSITION;

@@ -321,7 +321,7 @@ std::unique_ptr<Scene> Import::AssimpLoader::processAssimp()
 	auto scene = std::make_unique<Scene>();
 	{
 		std::lock_guard<std::mutex> lock(sceneMutex);
-		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_DIFFUSE));
+		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/diff.png", TEX_TYPE_PLACEHOLDER));
 		textureCache.push_back(std::make_shared<Texture>("assets/materials/default/spec.png", TEX_TYPE_SPECULAR));
 
 		processAINode(scenePtr->mRootNode, scenePtr, scene->getRootNodePtr());
