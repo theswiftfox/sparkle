@@ -93,10 +93,10 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 			glm::vec3 maxPos = {};
 
 			const float* bufferPos;
-			const float* bufferNorm;
-			const float* bufferUV;
-			const float* bufferTang;
-			const float* bufferBiTang;
+			const float* bufferNorm = nullptr;
+			const float* bufferUV = nullptr;
+			const float* bufferTang = nullptr;
+			const float* bufferBiTang = nullptr;
 
 			assert(primitive.attributes.find("POSITION") != primitive.attributes.end()); // Position is required
 			const auto & posAcc = model.accessors[primitive.attributes.find("POSITION")->second];
@@ -120,12 +120,12 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 			if (primitive.attributes.find("TANGENT") != primitive.attributes.end()) {
 				const tinygltf::Accessor& tangAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
 				const tinygltf::BufferView& tangView = model.bufferViews[tangAccessor.bufferView];
-				bufferNorm = reinterpret_cast<const float*>(&(model.buffers[tangView.buffer].data[tangAccessor.byteOffset + tangView.byteOffset]));
+				bufferTang = reinterpret_cast<const float*>(&(model.buffers[tangView.buffer].data[tangAccessor.byteOffset + tangView.byteOffset]));
 			}
 			if (primitive.attributes.find("BITANGENT") != primitive.attributes.end()) {
 				const tinygltf::Accessor& biTangAccessor = model.accessors[primitive.attributes.find("BITANGENT")->second];
 				const tinygltf::BufferView& biTangView = model.bufferViews[biTangAccessor.bufferView];
-				bufferNorm = reinterpret_cast<const float*>(&(model.buffers[biTangView.buffer].data[biTangAccessor.byteOffset + biTangView.byteOffset]));
+				bufferBiTang = reinterpret_cast<const float*>(&(model.buffers[biTangView.buffer].data[biTangAccessor.byteOffset + biTangView.byteOffset]));
 			}
 
 			for (auto v = 0u; v < posAcc.count; ++v) {
@@ -146,12 +146,13 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 				const void* dataPtr = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 
 				switch (accessor.componentType) {
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
 					const uint32_t* ptr = static_cast<const uint32_t*>(dataPtr);
 					for (auto idx = 0u; idx < accessor.count; ++idx) {
 						data.indices.push_back(ptr[idx]);
 					}
 					break;
+				}
 				default:
 					LOGSTDOUT("Index component type " + std::to_string(accessor.componentType) + " not supported!");
 					return;
