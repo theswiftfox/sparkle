@@ -253,8 +253,9 @@ void Import::AssimpLoader::createMesh(aiNode* node, const aiScene* scene, std::s
 		};
 
 		auto mesh = std::make_shared<Mesh>(data, material, meshRoot, nodeModel);
+		auto asNode = std::static_pointer_cast<Node, Mesh>(mesh);
 
-		meshRoot->addChild(std::static_pointer_cast<Node, Mesh>(mesh));
+		meshRoot->addChild(asNode);
 
 		if (aiMeshData->mName.length > 0) {
 			mesh->setName(std::string(aiMeshData->mName.C_Str()));

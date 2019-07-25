@@ -234,12 +234,12 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 			if (primitive.attributes.find("TANGENT") != primitive.attributes.end()) {
 				const tinygltf::Accessor& tangAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
 				const tinygltf::BufferView& tangView = model.bufferViews[tangAccessor.bufferView];
-				bufferNorm = reinterpret_cast<const float*>(&(model.buffers[tangView.buffer].data[tangAccessor.byteOffset + tangView.byteOffset]));
+				bufferTang = reinterpret_cast<const float*>(&(model.buffers[tangView.buffer].data[tangAccessor.byteOffset + tangView.byteOffset]));
 			}
 			if (primitive.attributes.find("BITANGENT") != primitive.attributes.end()) {
 				const tinygltf::Accessor& biTangAccessor = model.accessors[primitive.attributes.find("BITANGENT")->second];
 				const tinygltf::BufferView& biTangView = model.bufferViews[biTangAccessor.bufferView];
-				bufferNorm = reinterpret_cast<const float*>(&(model.buffers[biTangView.buffer].data[biTangAccessor.byteOffset + biTangView.byteOffset]));
+				bufferBiTang = reinterpret_cast<const float*>(&(model.buffers[biTangView.buffer].data[biTangAccessor.byteOffset + biTangView.byteOffset]));
 			}
 
 			for (auto v = 0u; v < posAcc.count; ++v) {
