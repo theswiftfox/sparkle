@@ -50,6 +50,10 @@ float calcLinearDepth(float zval)
 	output.position = float4(input.posWorld, calcLinearDepth(pos.z));
 
 	float4 albedo = albedoTexture.Sample(albSampler, input.uv);
+	if (albedo.a < 0.1) {
+		discard;
+	}
+
 	float4 normal;
 	if ((materialFeatures & SPARKLE_MAT_NORMAL_MAP) == SPARKLE_MAT_NORMAL_MAP) {
 		normal = 2.0 * normalTexture.Sample(normSampler, input.uv) - 1.0;

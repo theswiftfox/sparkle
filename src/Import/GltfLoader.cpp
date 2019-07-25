@@ -145,14 +145,14 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 
 				const void* dataPtr = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 
+				const uint32_t* ptr = nullptr;
 				switch (accessor.componentType) {
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
-					const uint32_t* ptr = static_cast<const uint32_t*>(dataPtr);
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+					ptr = static_cast<const uint32_t*>(dataPtr);
 					for (auto idx = 0u; idx < accessor.count; ++idx) {
 						data.indices.push_back(ptr[idx]);
 					}
 					break;
-				}
 				default:
 					LOGSTDOUT("Index component type " + std::to_string(accessor.componentType) + " not supported!");
 					return;
