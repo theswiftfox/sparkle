@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "Geometry.h"
-#include "AssimpLoader.h"
 #include "GltfLoader.h"
 
 namespace Sparkle {
@@ -17,9 +16,8 @@ namespace Import {
 		std::unique_ptr<Geometry::Scene> processScene();
 
 	private:
-		std::unique_ptr<AssimpLoader> assimpImporter = nullptr;
 		std::unique_ptr<glTFLoader> glTFImporter = nullptr;
 	};
-}
-}
+} // namespace Import
+} // namespace Sparkle
 #endif

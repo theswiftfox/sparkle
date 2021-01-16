@@ -1,25 +1,3 @@
-[submodule "3rdParty/glfw"]
-	path = 3rdParty/glfw
-	url = https://github.com/glfw/glfw.git
-[submodule "3rdParty/simpleini"]
-	path = 3rdParty/simpleini
-	url = https://github.com/brofield/simpleini.git
-[submodule "3rdParty/glm"]
-	path = 3rdParty/glm
-	url = https://github.com/g-truc/glm.git
-[submodule "3rdParty/imgui"]
-	path = 3rdParty/imgui
-	url = https://github.com/ocornut/imgui.git
-[submodule "3rdParty/stb"]
-	path = 3rdParty/stb
-	url = https://github.com/nothings/stb.git
-[submodule "3rdParty/gli"]
-	path = 3rdParty/gli
-	url = https://github.com/g-truc/gli.git
-[submodule "3rdParty/ChakraCore"]
-	path = 3rdParty/ChakraCore
-	url = https://github.com/Microsoft/ChakraCore.git
-	shallow = true
-[submodule "3rdParty/tinygltf"]
-	path = 3rdParty/tinygltf
-	url = https://github.com/syoyo/tinygltf.git
+[submodule "external/rapidjson"]
+	path = external/rapidjson
+	url = https://github.com/Tencent/rapidjson.git

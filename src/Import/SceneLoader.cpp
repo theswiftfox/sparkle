@@ -17,21 +17,17 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 	if (glTFImporter) {
 		glTFImporter.reset();
 	}
-	if (assimpImporter) {
-		assimpImporter.reset();
-	}
 	auto path = fs::path(filePath);
 	if (path.extension() == ".gltf1") {
 		glTFImporter = std::make_unique<Import::glTFLoader>();
 		glTFImporter->loadFromFile(filePath);
 	} else {
-		assimpImporter = std::make_unique<Import::AssimpLoader>();
-		assimpImporter->loadFromFile(filePath);
+		throw std::runtime_error("unsupported model file");
 	}
-
 }
 
-std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene() {
+std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene()
+{
 	if (glTFImporter) {
 		return nullptr;
 	} else {
@@ -39,10 +35,11 @@ std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene() {
 	}
 }
 
-bool Import::SceneLoader::isLoaded() {
+bool Import::SceneLoader::isLoaded()
+{
 	if (glTFImporter) {
-		return false;
+		return glTFImporter->isLoaded();
 	} else {
-		return assimpImporter->isLoaded();
+		return false;
 	}
 }

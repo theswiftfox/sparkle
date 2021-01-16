@@ -6,3 +6,4 @@ build/
 .idea/
 assets/settings.ini
 assets/
+.vscode/

@@ -1,7 +1,5 @@
 target_sources(sparkle-engine
 	PUBLIC
-		AssimpLoader.h
-		AssimpLoader.cpp
 		GltfLoader.h
 		GltfLoader.cpp
 		SceneLoader.h
