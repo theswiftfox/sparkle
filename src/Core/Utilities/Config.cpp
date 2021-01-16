@@ -1,5 +1,7 @@
 #include "Config.h"
 
+#define RAPIDJSON_HAS_STDSTRING 1
+
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/prettywriter.h>
@@ -9,12 +11,17 @@
 #include <fstream>
 #include <string>
 
-const std::string configFilePath = "settings.json";
+constexpr char defaultConfigFilePath[] = "settings.json";
 
-using namespace sparkle;
+using namespace Sparkle;
 bool Config::load()
 {
-	std::ifstream cfs(configFilePath);
+	return load(defaultConfigFilePath);
+}
+
+bool Config::load(std::string cfgPath)
+{
+	std::ifstream cfs(cfgPath);
 	if (cfs.is_open()) {
 		rapidjson::IStreamWrapper csw(cfs);
 
@@ -33,6 +40,12 @@ bool Config::load()
 		if (cmap.HasMember("windowMode")) {
 			windowMode = (WindowMode)cmap["windowMode"].GetUint();
 		}
+		if (cmap.HasMember("levelPath")) {
+			levelPath = std::string(cmap["levelPath"].GetString());
+		}
+		if (cmap.HasMember("vkValidation")) {
+			validationLayers = cmap["vkValidation"].GetBool();
+		}
 
 		return true;
 	}
@@ -40,6 +53,11 @@ bool Config::load()
 }
 
 bool Config::store()
+{
+	return store(defaultConfigFilePath);
+}
+
+bool Config::store(std::string cfgPath)
 {
 	rapidjson::StringBuffer sb;
 	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
@@ -55,8 +73,12 @@ bool Config::store()
 	writer.Key("windowMode");
 	writer.Uint((uint32_t)windowMode);
 	writer.EndObject(2);
+	writer.Key("level");
+	writer.String(levelPath);
+	writer.Key("vkValidation");
+	writer.Bool(validationLayers);
 
-	std::ofstream ofs("settings.json");
+	std::ofstream ofs(cfgPath);
 	ofs << sb.GetString();
 	ofs.flush();
 	ofs.close();

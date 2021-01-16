@@ -1,8 +1,7 @@
-#ifndef COMPUTE_PIPELINE_H
-#define COMPUTE_PIPELINE_H
+#pragma once
 
-#include "VulkanExtension.h"
 #include "SparkleTypes.h"
+#include "VulkanExtension.h"
 
 #include "Shader.h"
 
@@ -43,5 +42,3 @@ struct ComputePipeline {
 	void updateUBO(const UBO& ubo);
 };
 } // namespace Sparkle
-
-#endif

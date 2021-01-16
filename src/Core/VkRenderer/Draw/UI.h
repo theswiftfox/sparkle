@@ -1,7 +1,6 @@
-#ifndef UI_H
-#define UI_H
+#pragma once
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 #include <VulkanExtension.h>
 #include <memory>
@@ -10,118 +9,97 @@
 #include <glm/glm.hpp>
 
 #include "Texture.h"
-#include <assimp/ProgressHandler.hpp>
 
 namespace Sparkle {
 class RenderBackend;
 
-class GUI : public Assimp::ProgressHandler {
+class GUI {
 public:
-    struct FrameData {
-        size_t fps;
+	struct FrameData {
+		size_t fps;
 		int drawCount;
-    };
-    struct ProgressData {
-        bool isLoading;
-        float value;
-        int currentStep;
-        int maxSteps;
+	};
 
-        ProgressData(bool isLoading = false, float value = 0.0f, int curr = 0, int max = 0)
-            : isLoading(isLoading)
-            , value(value)
-            , currentStep(curr)
-            , maxSteps(max)
-        {
-        }
-    };
-    struct PushConstants {
-        glm::vec2 scale;
-        glm::vec2 translate;
-    } pushConstants;
+	struct PushConstants {
+		glm::vec2 scale;
+		glm::vec2 translate;
+	} pushConstants;
 
-    GUI();
+	GUI();
 
-    float getExposure() const { return exposure; }
-    float getGamma() const { return gamma; }
+	float getExposure() const { return exposure; }
+	float getGamma() const { return gamma; }
 
-    void toggleOptions()
-    {
-        showOptions = !showOptions;
-    }
+	void toggleOptions()
+	{
+		showOptions = !showOptions;
+	}
 
-    //	~GUI();
+	//	~GUI();
 
-    bool Update(float percentage = -1.0);
-    void UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/);
+	void updateBuffers(const std::vector<VkFence>& fences);
+	void updateFrame(const FrameData frameData);
 
-    void updateBuffers(const std::vector<VkFence>& fences);
-    void updateFrame(const FrameData frameData);
+	void init(float width, float height, VkRenderPass renderPass);
+	void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 
-    void init(float width, float height, VkRenderPass renderPass);
-    void drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+	void cleanup()
+	{
+		fontTex->cleanup();
+		fontTex.reset();
+		vertexBuffer.destroy(true);
+		delete (vertexMemory);
+		indexBuffer.destroy(true);
+		delete (indexMemory);
 
-    void cleanup()
-    {
-        fontTex->cleanup();
-        fontTex.reset();
-        vertexBuffer.destroy(true);
-        delete (vertexMemory);
-        indexBuffer.destroy(true);
-        delete (indexMemory);
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+		vkDestroyPipeline(device, pipeline, nullptr);
+		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+		vkDestroyPipelineCache(device, pipelineCache, nullptr);
 
-        vkDestroyPipeline(device, pipeline, nullptr);
-        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-        vkDestroyPipelineCache(device, pipelineCache, nullptr);
-
-        vkDestroyShaderModule(device, vtxModule, nullptr);
-        vkDestroyShaderModule(device, frgModule, nullptr);
-    }
+		vkDestroyShaderModule(device, vtxModule, nullptr);
+		vkDestroyShaderModule(device, frgModule, nullptr);
+	}
 
 private:
-    static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
-    static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
+	static const uint32_t minIdxBufferSize = 1048576; // 1MB = 524288 indices
+	static const uint32_t minVtxBufferSize = 1048576; // 1MB = 52428  vertices
 
-    VkShaderModule vtxModule;
-    VkShaderModule frgModule;
+	VkShaderModule vtxModule;
+	VkShaderModule frgModule;
 
-    std::shared_ptr<RenderBackend> renderBackend;
+	std::shared_ptr<RenderBackend> renderBackend;
 
-    std::shared_ptr<Texture> fontTex;
-    vkExt::Buffer vertexBuffer;
-    vkExt::SharedMemory* vertexMemory = nullptr;
-    vkExt::Buffer indexBuffer;
-    vkExt::SharedMemory* indexMemory = nullptr;
-    uint64_t vtxCount = 0;
-    uint64_t idxCount = 0;
+	std::shared_ptr<Texture> fontTex;
+	vkExt::Buffer vertexBuffer;
+	vkExt::SharedMemory* vertexMemory = nullptr;
+	vkExt::Buffer indexBuffer;
+	vkExt::SharedMemory* indexMemory = nullptr;
+	uint64_t vtxCount = 0;
+	uint64_t idxCount = 0;
 
-    VkRenderPass renderPass;
-    VkPipelineCache pipelineCache;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline pipeline;
+	VkRenderPass renderPass;
+	VkPipelineCache pipelineCache;
+	VkPipelineLayout pipelineLayout;
+	VkPipeline pipeline;
 
-    VkDescriptorPool descriptorPool;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkDescriptorSet descriptorSet;
+	VkDescriptorPool descriptorPool;
+	VkDescriptorSetLayout descriptorSetLayout;
+	VkDescriptorSet descriptorSet;
 
-    VkDevice device = VK_NULL_HANDLE;
+	VkDevice device = VK_NULL_HANDLE;
 
-    float windowWidth, windowHeight;
+	float windowWidth, windowHeight;
 
-    float gamma = 2.2f;
-    float exposure = 1.0f;
+	float gamma = 2.2f;
+	float exposure = 1.0f;
 
-    bool showOptions = false;
+	bool showOptions = false;
 	bool showStatus = false;
 
-    static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
-    void initResources();
-
-    ProgressData assimpProgress;
+	static VkPipelineShaderStageCreateInfo loadUiShader(const std::string shaderName, VkShaderStageFlagBits stage);
+	void initResources();
 };
-}
-
-#endif
+} // namespace Sparkle

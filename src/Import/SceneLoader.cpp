@@ -2,13 +2,7 @@
 
 #include "Util.h"
 
-#ifdef _WIN32
 #include <filesystem>
-namespace fs = std::filesystem;
-#elif __linux__
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
 
 using namespace Sparkle;
 
@@ -17,7 +11,7 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 	if (glTFImporter) {
 		glTFImporter.reset();
 	}
-	auto path = fs::path(filePath);
+	auto path = std::filesystem::path(filePath);
 	if (path.extension() == ".gltf1") {
 		glTFImporter = std::make_unique<Import::glTFLoader>();
 		glTFImporter->loadFromFile(filePath);
@@ -29,16 +23,18 @@ void Import::SceneLoader::loadFromFile(std::string filePath)
 std::unique_ptr<Geometry::Scene> Import::SceneLoader::processScene()
 {
 	if (glTFImporter) {
+		// todo
 		return nullptr;
 	} else {
-		return assimpImporter->processAssimp();
+		return nullptr;
 	}
 }
 
 bool Import::SceneLoader::isLoaded()
 {
 	if (glTFImporter) {
-		return glTFImporter->isLoaded();
+		return false;
+		// return glTFImporter->isLoaded();
 	} else {
 		return false;
 	}

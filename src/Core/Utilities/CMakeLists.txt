@@ -1,7 +1,7 @@
 target_sources(sparkle-engine
 	PUBLIC
-		AppSettings.h
-		AppSettings.cpp
+		Config.h
+		COnfig.cpp
 		FileReader.h
 		FileReader.cpp
 		Util.h

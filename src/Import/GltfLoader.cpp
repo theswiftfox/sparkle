@@ -3,10 +3,10 @@
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define TINYGLTF_IMPLEMENTATION
-#include <tinygltf/tiny_gltf.h>
+#include <tiny_gltf.h>
 
-#include <glm/gtc/type_ptr.hpp>
 #include <Geometry.h>
+#include <glm/gtc/type_ptr.hpp>
 
 using namespace Sparkle;
 using namespace Geometry;
@@ -53,7 +53,6 @@ void Import::glTFLoader::loadMaterials()
 }
 void Import::glTFLoader::loadTextures()
 {
-
 }
 void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const tinygltf::Node& node)
 {
@@ -99,8 +98,8 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 			const float* bufferBiTang;
 
 			assert(primitive.attributes.find("POSITION") != primitive.attributes.end()); // Position is required
-			const auto & posAcc = model.accessors[primitive.attributes.find("POSITION")->second];
-			const auto & posView = model.bufferViews[posAcc.bufferView];
+			const auto& posAcc = model.accessors[primitive.attributes.find("POSITION")->second];
+			const auto& posView = model.bufferViews[posAcc.bufferView];
 			bufferPos = reinterpret_cast<const float*>(&(model.buffers[posView.buffer].data[posAcc.byteOffset + posView.byteOffset]));
 
 			minPos = glm::vec3(posAcc.minValues[0], posAcc.minValues[1], posAcc.minValues[3]);
@@ -158,8 +157,7 @@ void Import::glTFLoader::loadNode(std::shared_ptr<Geometry::Node> parent, const 
 					return;
 					// todo: other types
 				}
-			}
-			else {
+			} else {
 				// todo?
 			}
 		}

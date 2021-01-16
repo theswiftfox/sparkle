@@ -14,14 +14,14 @@
 
 #include <future>
 
-#include "AppSettings.h"
 #include "Camera.h"
 #include "ComputePipeline.h"
+#include "Config.h"
 #include "Geometry.h"
 #include "GraphicsPipeline.h"
+#include "SceneLoader.h"
 #include "SparkleTypes.h"
 #include "UI.h"
-#include "SceneLoader.h"
 
 //#define MAX_FRAMES_IN_FLIGHT 2
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -37,7 +37,7 @@ class RenderBackend {
 public:
 	RenderBackend(GLFWwindow* windowPtr, std::string name, std::shared_ptr<Camera> camera);
 
-	void initialize(std::shared_ptr<Settings> settings, bool withValidation = false);
+	void initialize(std::shared_ptr<Config> settings, bool withValidation = false);
 	void draw(double deltaT);
 	void updateUniforms(bool updatedCam = false);
 	void updateUiData(GUI::FrameData uiData);

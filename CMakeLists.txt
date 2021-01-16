@@ -29,11 +29,13 @@ conan_cmake_run(
 
 include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
 
-set(CMAKE_INSTALL_PREFIX "./install")
+#set(CMAKE_INSTALL_PREFIX "./install")
 cmake_policy(SET CMP0076 NEW)
 
 ### GLFW
 find_package(glfw3 REQUIRED)
+### imgui
+find_package(imgui REQUIRED)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -45,12 +47,19 @@ FetchContent_Declare(
 	gltf
 	GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
 )
-
+FetchContent_MakeAvailable(gltf)
+FetchContent_Declare(
+    gli
+    GIT_REPOSITORY https://github.com/g-truc/gli.git
+)
+FetchContent_MakeAvailable(gli)
+    
 find_package(Vulkan REQUIRED)
 
 set(LINK_LIBRARIES
-	glfw::glfw
-	${Vulkan_LIBRARIES}
+    ${Vulkan_LIBRARIES}
+    ${glfw_LIBRARIES}
+    ${imgui_LIBRARIES}
 )
 
 # Sparkle Engine
@@ -59,10 +68,13 @@ add_subdirectory(src/Core)
 add_subdirectory(src/Import)
 
 ### INCLUDE
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${Vulkan_INCLUDE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CONAN_INCLUDE_DIRS_GLFW})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${imgui_INCLUDE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/glm-src)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/gli-src)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/gltf-src)
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/external/rapidjson/include)
-# Additional Include Directories
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/external")
-target_include_directories(${PROJECT_NAME} PRIVATE "${Vulkan_INCLUDE_DIR}")
 
-set(LINKLIBRARIES ${LINK_LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${LINK_LIBRARIES})

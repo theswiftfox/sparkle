@@ -28,7 +28,6 @@ GUI::GUI()
 	ImGui::CreateContext();
 	renderBackend = App::getHandle().getRenderBackend();
 	device = renderBackend->getDevice();
-	assimpProgress = ProgressData();
 }
 
 void GUI::init(float width, float height, VkRenderPass renderPass)
@@ -293,25 +292,6 @@ void GUI::updateFrame(GUI::FrameData frameData)
 
 	// Todo: ImGui windows etc
 
-	if (assimpProgress.isLoading) {
-		ImGui::SetNextWindowPos(ImVec2(10, 10));
-		int flags = ImGuiWindowFlags_NoTitleBar;
-		flags |= ImGuiWindowFlags_AlwaysAutoResize;
-		flags |= ImGuiWindowFlags_NoMove;
-		ImGui::Begin("Loading", nullptr, flags);
-		if (assimpProgress.value > 0.000001f) {
-			//auto text = "Processing assets: Step " + std::to_string(assimpProgress.currentStep) + "/" + std::to_string(assimpProgress.maxSteps);
-			auto percentage = assimpProgress.value * 100;
-			std::stringstream ss;
-			ss << "Loading assets: " << std::fixed << std::setprecision(1) << percentage << "%";
-			//	ImGui::TextUnformatted(text.c_str());
-			ImGui::TextUnformatted(ss.str().c_str());
-		} else {
-			ImGui::TextUnformatted("Loading level file..");
-		}
-		ImGui::End();
-	}
-
 	if (showOptions) {
 		ImGui::SetNextWindowPos(ImVec2(10, windowHeight - 100));
 		int flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove;
@@ -322,12 +302,11 @@ void GUI::updateFrame(GUI::FrameData frameData)
 	}
 
 	if (showStatus) {
-	
 	}
 
-		//ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 
-		ImGui::Render();
+	ImGui::Render();
 }
 
 void GUI::drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer)
@@ -400,19 +379,4 @@ void GUI::drawFrame(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer)
 		}
 	}
 	vkCmdEndRenderPass(commandBuffer);
-}
-
-bool GUI::Update(float percentage /*=-1*/)
-{
-	assimpProgress.isLoading = percentage > -1.0f;
-	assimpProgress.value = percentage;
-
-	return false;
-}
-
-void GUI::UpdatePostProcess(int currentStep /*= 0*/, int numberOfSteps /*= 0*/)
-{
-	assimpProgress.currentStep = currentStep;
-	assimpProgress.maxSteps = numberOfSteps;
-	ProgressHandler::UpdatePostProcess(currentStep, numberOfSteps);
 }

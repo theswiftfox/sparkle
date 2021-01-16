@@ -1,5 +1,4 @@
-#ifndef SHADER_H
-#define SHADER_H
+#pragma once
 
 #include <vulkan/vulkan.h>
 
@@ -33,7 +32,7 @@ namespace Shaders {
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 
 	struct ShaderProgramBase {
-		VkShaderModule vtxModule = nullptr;	 // vertex shader
+		VkShaderModule vtxModule = nullptr; // vertex shader
 		VkShaderModule tescModule = nullptr; // tessellation control shader
 		VkShaderModule teseModule = nullptr; // tessellation evaluation shader
 		VkShaderModule geomModule = nullptr; // geometry shader
@@ -119,4 +118,3 @@ namespace Shaders {
 	};
 } // namespace Shaders
 } // namespace Sparkle
-#endif // SHADER_H

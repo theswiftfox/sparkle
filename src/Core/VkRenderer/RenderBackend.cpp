@@ -53,15 +53,14 @@ RenderBackend::RenderBackend(GLFWwindow* windowPtr, std::string name, std::share
 	pCamera = camera;
 }
 
-void RenderBackend::initialize(std::shared_ptr<Settings> settings, bool withValidation)
+void RenderBackend::initialize(std::shared_ptr<Config> settings, bool withValidation)
 {
 	enableValidationLayers = withValidation;
 	requiredFeatures.samplerAnisotropy = VK_TRUE;
 	requiredFeatures.textureCompressionBC = VK_TRUE;
 
-	auto [width, height] = settings->getResolution();
-	viewportWidth = width;
-	viewportHeight = height;
+	viewportWidth = settings->resolution.width;
+	viewportHeight = settings->resolution.height;
 
 	setupVulkan();
 	setupLights();
@@ -374,7 +373,7 @@ void RenderBackend::updateUniforms(bool updatedCam /*= false*/)
 		mrtUBO.view = pCamera->getView();
 		mrtUBO.projection = pCamera->getProjection();
 
-	//	vkDeviceWaitIdle(pVulkanDevice);
+		//	vkDeviceWaitIdle(pVulkanDevice);
 		if (updateGeometry && pScene) {
 			mrtShaderProg->updateDynamicUniformBufferObject(pScene->getRenderableScene());
 			updateGeometry = false;
@@ -1683,8 +1682,7 @@ VkPresentModeKHR RenderBackend::getBestPresentMode(const std::vector<VkPresentMo
 	for (const auto& mode : availableModes) {
 		if (mode == VK_PRESENT_MODE_MAILBOX_KHR) { // tripple buffering
 			return mode;
-		}
-		else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may have tearing
+		} else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { // images transferred to screen as they are rendered..may have tearing
 			bestMode = mode;
 		}
 	}

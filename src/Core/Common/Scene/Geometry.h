@@ -1,15 +1,14 @@
-#ifndef GEOMETRY_H
-#define GEOMETRY_H
+#pragma once
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <array>
 #include <glm/glm.hpp>
 
+#include <array>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
 
 #include "Material.h"
 #include "SparkleTypes.h"
@@ -92,7 +91,6 @@ namespace Geometry {
 		void rotate(glm::mat3 rotation);
 		void scaleUniform(float scaleFactor);
 		void scale(glm::vec3 scaleVec);
-
 
 	protected:
 		std::vector<std::shared_ptr<Node>> children;
@@ -188,9 +186,6 @@ namespace Geometry {
 
 		std::vector<std::shared_ptr<Node>> drawableSceneCache;
 		bool cacheDirty = false;
-
 	};
 } // namespace Geometry
 } // namespace Sparkle
-
-#endif

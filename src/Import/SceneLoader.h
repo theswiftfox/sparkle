@@ -1,5 +1,4 @@
-#ifndef SCENE_LOADER_H
-#define SCENE_LOADER_H
+#pragma once
 
 #include <memory>
 
@@ -20,4 +19,3 @@ namespace Import {
 	};
 } // namespace Import
 } // namespace Sparkle
-#endif
